@@ -1,5 +1,7 @@
 import type { ComponentType } from "react";
+import { BarrioPage } from "./pages/barrio";
 import { ButtonsPage } from "./pages/buttons";
+import { ChartsPage } from "./pages/charts";
 import { ColorsPage } from "./pages/colors";
 import { ControlsPage } from "./pages/controls";
 import { DataPage } from "./pages/data";
@@ -15,8 +17,10 @@ const pages: Record<string, ComponentType> = {
   botones: ButtonsPage,
   controles: ControlsPage,
   datos: DataPage,
+  graficas: ChartsPage,
   estados: StatesPage,
   mapa: MapPage,
+  barrio: BarrioPage,
 };
 
 /**
@@ -60,7 +64,7 @@ export default function DevGallery() {
           <h1 className="text-4xl">{section?.title ?? "Resumen"}</h1>
           <p className="max-w-2xl text-muted-foreground">
             {section?.description ??
-              "Todas las piezas de la interfaz, en claro y en oscuro, para dar forma a la marca. Solo en desarrollo."}
+              "Todas las piezas de la interfaz en modo oscuro para dar forma a la marca. Solo en desarrollo."}
           </p>
         </header>
         {Page ? <Page /> : <OverviewPage />}

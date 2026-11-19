@@ -8,45 +8,36 @@ type Token = {
 };
 
 const surfaceTokens: Token[] = [
-  { name: "background", swatch: "bg-background text-foreground", role: "Fondo de la página." },
-  { name: "card", swatch: "bg-card text-card-foreground", role: "Tarjetas y estadísticas." },
-  { name: "popover", swatch: "bg-popover text-popover-foreground", role: "Popups del mapa y tooltips." },
-  { name: "muted", swatch: "bg-muted text-muted-foreground", role: "Hover, selección y texto secundario." },
+  { name: "background", swatch: "bg-background text-foreground", role: "Lienzo principal (negro profundo estilo Vercel)." },
+  { name: "card", swatch: "bg-card text-card-foreground", role: "Tarjetas flotantes y métricas." },
+  { name: "popover", swatch: "bg-popover text-popover-foreground", role: "Popups del mapa y tooltips de gráficas." },
+  { name: "muted", swatch: "bg-muted text-muted-foreground", role: "Hover, fondos suaves y texto secundario." },
 ];
 
 const actionTokens: Token[] = [
-  { name: "primary", swatch: "bg-primary text-primary-foreground", role: "Acción principal y badges por defecto." },
-  { name: "secondary", swatch: "bg-secondary text-secondary-foreground", role: "Acción secundaria, badge «Datos de ejemplo»." },
-  { name: "accent", swatch: "bg-accent text-accent-foreground", role: "Resaltes suaves en menús." },
-  { name: "destructive", swatch: "bg-destructive text-white", role: "Errores y acciones peligrosas." },
+  { name: "primary", swatch: "bg-primary text-primary-foreground", role: "Blanco puro: acción principal y pestaña activa." },
+  { name: "secondary", swatch: "bg-secondary text-secondary-foreground", role: "Acción secundaria y badges discretos." },
+  { name: "accent", swatch: "bg-accent text-accent-foreground", role: "Resaltes suaves en menús y listas." },
+  { name: "destructive", swatch: "bg-destructive text-white", role: "Alertas críticas e incidencias DGT." },
 ];
 
 const lineTokens: Token[] = [
-  { name: "border", swatch: "bg-border", role: "Bordes y separadores." },
-  { name: "input", swatch: "bg-input", role: "Borde de los campos." },
-  { name: "ring", swatch: "bg-ring", role: "Anillo de foco." },
+  { name: "border", swatch: "bg-border", role: "Bordes hairline de 1 px (blanco al 10 %)." },
+  { name: "input", swatch: "bg-input", role: "Borde de los campos de texto." },
+  { name: "ring", swatch: "bg-ring", role: "Anillo de foco accesible." },
 ];
 
 const chartTokens: Token[] = [
-  { name: "chart-1", swatch: "bg-chart-1", role: "" },
-  { name: "chart-2", swatch: "bg-chart-2", role: "" },
-  { name: "chart-3", swatch: "bg-chart-3", role: "" },
-  { name: "chart-4", swatch: "bg-chart-4", role: "" },
-  { name: "chart-5", swatch: "bg-chart-5", role: "" },
+  { name: "chart-1", swatch: "bg-chart-1 text-zinc-950", role: "Verde · ahorro, hora valle, renovable, gasolinera más barata." },
+  { name: "chart-2", swatch: "bg-chart-2 text-zinc-950", role: "Azul · ruta en coche, energía de mercado, movilidad." },
+  { name: "chart-3", swatch: "bg-chart-3 text-zinc-950", role: "Ámbar · cámaras, peajes/llano, precaución." },
+  { name: "chart-4", swatch: "bg-chart-4 text-zinc-950", role: "Violeta · transporte público y generación no renovable." },
+  { name: "chart-5", swatch: "bg-chart-5 text-white", role: "Rojo · incidencias DGT y hora punta." },
 ];
 
-/** Colores escritos a mano en features/trayecto/trayecto-map.tsx, fuera de los tokens. */
-const looseColors = [
-  { name: "Ruta en coche", value: "#2563eb", swatch: "bg-[#2563eb]" },
-  { name: "Franja de 300 m", value: "#3b82f6 · 8 %", swatch: "bg-[#3b82f6]/10 ring-1 ring-[#3b82f6]/30 ring-inset" },
-  { name: "Pin de destino", value: "emerald-600", swatch: "bg-emerald-600" },
-  { name: "Pin de cámara", value: "amber-400", swatch: "bg-amber-400" },
-  { name: "Cámara elegida", value: "amber-500", swatch: "bg-amber-500" },
-];
-
-function TokenGrid({ tokens }: { tokens: Token[] }) {
+function TokenGrid({ tokens, cols = 4 }: { tokens: Token[]; cols?: 4 | 5 }) {
   return (
-    <ul className="grid w-full gap-3 sm:grid-cols-2">
+    <ul className={`grid w-full gap-3 sm:grid-cols-2 ${cols === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4"}`}>
       {tokens.map((token) => (
         <li key={token.name} className="flex flex-col overflow-hidden rounded-xl border">
           <div className={`flex h-16 items-end p-3 font-heading text-sm font-semibold ${token.swatch}`}>
@@ -63,43 +54,27 @@ export function ColorsPage() {
   return (
     <>
       <p className="max-w-2xl rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
-        Hoy la paleta es la neutra de shadcn (preset Nova, base <code>neutral</code>): todavía no hay color de marca.
-        Los tokens viven en <code>src/index.css</code>; cambiar uno aquí cambia toda la app.
+        Estructura monocroma en blanco y negro estilo Vercel definida en <code>:root</code> (<code>src/index.css</code>).
+        El color solo aparece como señal semántica en el mapa, las alertas y las gráficas (<code>--chart-1..5</code>).
       </p>
 
       {[
-        { title: "Superficies", description: "Dónde se apoya el contenido.", tokens: surfaceTokens },
-        { title: "Acciones", description: "Botones, badges y estados.", tokens: actionTokens },
-        { title: "Líneas y foco", description: "Bordes, campos y anillo de foco.", tokens: lineTokens },
-        { title: "Gráficas", description: "Escala para datos; aún sin usar.", tokens: chartTokens },
+        { title: "Superficies", description: "Dónde se apoya el contenido.", tokens: surfaceTokens, cols: 4 as const },
+        { title: "Acciones", description: "Botones, pestaña activa y estados.", tokens: actionTokens, cols: 4 as const },
+        { title: "Líneas y foco", description: "Bordes hairline, campos y foco.", tokens: lineTokens, cols: 4 as const },
+        {
+          title: "Arcoíris semántico (gráficas y alertas)",
+          description: "Tokens compartidos entre shadcn/charts, píldoras de alerta y pines del mapa.",
+          tokens: chartTokens,
+          cols: 5 as const,
+        },
       ].map((group) => (
         <Specimen key={group.title} title={group.title} description={group.description}>
-          <Surface tone="light">
-            <TokenGrid tokens={group.tokens} />
-          </Surface>
-          <Surface tone="dark">
-            <TokenGrid tokens={group.tokens} />
+          <Surface>
+            <TokenGrid tokens={group.tokens} cols={group.cols} />
           </Surface>
         </Specimen>
       ))}
-
-      <Specimen
-        title="Colores fuera del sistema"
-        description="Escritos a mano en el mapa. Son los primeros candidatos a convertirse en tokens de marca."
-        wide
-      >
-        <ul className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {looseColors.map((color) => (
-            <li key={color.name} className="flex flex-col overflow-hidden rounded-xl border">
-              <div className={`h-16 ${color.swatch}`} />
-              <div className="flex flex-col gap-0.5 p-3">
-                <span className="text-sm font-medium">{color.name}</span>
-                <code className="text-xs text-muted-foreground">{color.value}</code>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </Specimen>
     </>
   );
 }

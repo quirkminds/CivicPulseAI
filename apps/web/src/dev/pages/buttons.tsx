@@ -1,6 +1,6 @@
 import { ArrowRightIcon, CarIcon, LocateFixedIcon, TrashIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BothSurfaces, Specimen } from "../components/specimen";
+import { Specimen, Surface } from "../components/specimen";
 
 const variants = ["default", "secondary", "outline", "ghost", "destructive", "link"] as const;
 const sizes = ["xs", "sm", "default", "lg"] as const;
@@ -10,27 +10,27 @@ export function ButtonsPage() {
   return (
     <>
       <Specimen title="Variantes" description="De más a menos peso. Una sola acción principal por pantalla.">
-        <BothSurfaces>
+        <Surface>
           {variants.map((variant) => (
             <Button key={variant} variant={variant}>
               {variant}
             </Button>
           ))}
-        </BothSurfaces>
+        </Surface>
       </Specimen>
 
       <Specimen title="Tamaños" description="default (h-8) en la app; lg para la llamada a la acción.">
-        <BothSurfaces>
+        <Surface>
           {sizes.map((size) => (
             <Button key={size} size={size}>
               {size}
             </Button>
           ))}
-        </BothSurfaces>
+        </Surface>
       </Specimen>
 
       <Specimen title="Con icono" description="Iconos de lucide con data-icon para ajustar el padding.">
-        <BothSurfaces>
+        <Surface>
           <Button>
             <CarIcon data-icon="inline-start" /> Ir en coche
           </Button>
@@ -42,11 +42,11 @@ export function ButtonsPage() {
               <LocateFixedIcon />
             </Button>
           ))}
-        </BothSurfaces>
+        </Surface>
       </Specimen>
 
       <Specimen title="Estados" description="Deshabilitado e inválido. El foco se ve con Tab.">
-        <BothSurfaces>
+        <Surface>
           <Button disabled>Deshabilitado</Button>
           <Button variant="outline" disabled>
             Deshabilitado
@@ -57,7 +57,7 @@ export function ButtonsPage() {
           <Button variant="destructive">
             <TrashIcon data-icon="inline-start" /> Borrar
           </Button>
-        </BothSurfaces>
+        </Surface>
       </Specimen>
     </>
   );

@@ -9,7 +9,7 @@ export const devSections: DevSection[] = [
   {
     slug: "colores",
     title: "Colores",
-    description: "Tokens de shadcn por rol, sobre superficie clara y oscura, y los colores sueltos del mapa.",
+    description: "Blanco y negro estilo Vercel para la estructura y escala arcoíris semántica para señales y gráficas.",
   },
   {
     slug: "tipografia",
@@ -29,7 +29,12 @@ export const devSections: DevSection[] = [
   {
     slug: "datos",
     title: "Datos",
-    description: "Badge, Card, la tarjeta de estadística y la lista de cámaras.",
+    description: "Badge, Card, el panel con divulgación progresiva y píldoras de alertas.",
+  },
+  {
+    slug: "graficas",
+    title: "Gráficas",
+    description: "Visualizaciones con shadcn/charts (Recharts) alineadas con el design system de mapcn.",
   },
   {
     slug: "estados",
@@ -39,6 +44,11 @@ export const devSections: DevSection[] = [
   {
     slug: "mapa",
     title: "Mapa",
-    description: "Pines, ruta y franja de 300 m sobre mapcn, con datos de ejemplo.",
+    description: "Pines, ruta, capas bajo demanda y franja de 300 m sobre mapcn, con datos de ejemplo.",
+  },
+  {
+    slug: "barrio",
+    title: "Mi barrio",
+    description: "Mapa y ficha de renta y demografía del INE.",
   },
 ];

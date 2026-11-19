@@ -21,7 +21,7 @@ const body = [
 export function TypographyPage() {
   return (
     <>
-      <Specimen title="Familias" description="Se cargan desde el proyecto con @fontsource-variable.">
+      <Specimen title="Familias" description="Se cargan desde el proyecto con @fontsource-variable." columns={2}>
         <div className="flex flex-col gap-2 rounded-2xl border p-6">
           <span className="text-xs font-medium tracking-widest text-muted-foreground uppercase">
             font-heading · Inter
@@ -38,7 +38,7 @@ export function TypographyPage() {
         </div>
       </Specimen>
 
-      <Specimen title="Títulos" description="h1–h6 llevan font-heading y tracking-tight desde index.css." wide>
+      <Specimen title="Títulos" description="h1–h6 llevan font-heading y tracking-tight desde index.css.">
         <div className="flex flex-col divide-y rounded-2xl border">
           {headings.map(({ tag, className, sample }) => {
             const Tag = tag;
@@ -54,7 +54,7 @@ export function TypographyPage() {
         </div>
       </Specimen>
 
-      <Specimen title="Texto" wide>
+      <Specimen title="Texto">
         <div className="flex flex-col divide-y rounded-2xl border">
           {body.map(({ label, className, sample }) => (
             <div key={label} className="flex items-baseline gap-6 p-4">
@@ -68,6 +68,7 @@ export function TypographyPage() {
       <Specimen
         title="Cifras"
         description="Euros, minutos y kilómetros con tabular-nums, para que no bailen al cambiar."
+        columns={2}
       >
         <div className="flex flex-col gap-1 rounded-2xl border p-6">
           <span className="text-xs text-muted-foreground">Proporcionales</span>

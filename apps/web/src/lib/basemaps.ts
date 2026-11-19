@@ -3,8 +3,8 @@ import type { StyleSpecification } from "maplibre-gl";
 /**
  * Mapas base que se pueden pasar a mapcn (`<Map styles={…}>`). Detalle en docs/fuentes-de-datos.md.
  *
- * - carto: el de mapcn por defecto (CARTO, datos de OpenStreetMap). Tiene versión clara y oscura.
- * - ign:   mapa base vectorial oficial del IGN. Solo claro; en oscuro se usa CARTO dark-matter.
+ * - carto: el de mapcn por defecto (CARTO dark-matter en modo oscuro, datos de OpenStreetMap).
+ * - ign:   mapa base vectorial oficial del IGN (estilo único publicado por el IGN).
  * - pnoa:  ortofoto aérea del PNOA (IGN), ráster.
  */
 export type BasemapId = "carto" | "ign" | "pnoa";
@@ -18,7 +18,7 @@ export const BASEMAPS: { id: BasemapId; label: string }[] = [
 ];
 
 const CARTO_LIGHT = "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
-const CARTO_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+export const CARTO_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
 
 const IGN_STYLE_URL = "https://vt-mapabase.idee.es/files/styles/mapaBase_scn_color1_CNIG.json";
 const IGN_ATTRIBUTION =
@@ -75,7 +75,10 @@ export function loadBasemap(id: BasemapId): Promise<BasemapStyles> {
       if (!res.ok) throw new Error(`Estilo del IGN: HTTP ${res.status}`);
       return res.json() as Promise<StyleSpecification>;
     })
-    .then((style) => ({ light: patchIgnStyle(style), dark: CARTO_DARK }))
+    .then((style) => {
+      const patched = patchIgnStyle(style);
+      return { light: patched, dark: patched };
+    })
     .catch((err: unknown) => {
       ign = undefined; // permite reintentar
       throw err;

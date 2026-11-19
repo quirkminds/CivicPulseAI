@@ -7,13 +7,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { CAMPUSES, CAMPUS_SUR } from "@/lib/campus";
-import { BothSurfaces, Specimen } from "../components/specimen";
+import { Specimen, Surface } from "../components/specimen";
 
-/** Etiqueta y campo. useId evita ids repetidos al pintar el mismo ejemplo en claro y en oscuro. */
 function OriginField({ invalid = false, disabled = false }: { invalid?: boolean; disabled?: boolean }) {
   const id = useId();
   return (
-    <div className="grid w-full gap-1.5">
+    <div className="grid w-full max-w-md gap-1.5">
       <Label htmlFor={id}>Desde</Label>
       <Input
         id={id}
@@ -30,16 +29,16 @@ export function ControlsPage() {
   return (
     <>
       <Specimen title="Campo de texto" description="Origen del trayecto: normal, inválido y deshabilitado.">
-        <BothSurfaces className="flex-col items-stretch">
+        <Surface className="flex-col items-stretch">
           <OriginField />
           <OriginField invalid />
           <OriginField disabled />
-        </BothSurfaces>
+        </Surface>
       </Specimen>
 
       <Specimen title="Elegir campus" description="ToggleGroup outline con dos líneas, como en el panel.">
-        <BothSurfaces>
-          <ToggleGroup type="single" variant="outline" defaultValue={CAMPUS_SUR.id} className="w-full">
+        <Surface>
+          <ToggleGroup type="single" variant="outline" defaultValue={CAMPUS_SUR.id} className="w-full max-w-md">
             {CAMPUSES.map((c) => (
               <ToggleGroupItem key={c.id} value={c.id} className="flex-1 flex-col py-6 leading-tight">
                 <span className="text-sm font-medium">{c.name}</span>
@@ -47,12 +46,12 @@ export function ControlsPage() {
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
-        </BothSurfaces>
+        </Surface>
       </Specimen>
 
       <Specimen title="Modo de transporte" description="ToggleGroup outline con icono.">
-        <BothSurfaces>
-          <ToggleGroup type="single" variant="outline" defaultValue="car" className="w-full">
+        <Surface>
+          <ToggleGroup type="single" variant="outline" defaultValue="car" className="w-full max-w-md">
             <ToggleGroupItem value="car" className="flex-1">
               <CarIcon /> Coche
             </ToggleGroupItem>
@@ -68,13 +67,13 @@ export function ControlsPage() {
               <TrainFrontIcon />
             </ToggleGroupItem>
           </ToggleGroup>
-        </BothSurfaces>
+        </Surface>
       </Specimen>
 
       <Specimen title="Pestañas" description="Navegación entre secciones. Variante default y line.">
-        <BothSurfaces className="flex-col items-stretch">
+        <Surface className="flex-col items-stretch">
           {(["default", "line"] as const).map((variant) => (
-            <Tabs key={variant} defaultValue="trayecto">
+            <Tabs key={variant} defaultValue="trayecto" className="max-w-md">
               <TabsList variant={variant} className="w-full">
                 <TabsTrigger value="trayecto">
                   <RouteIcon /> Mi trayecto
@@ -88,18 +87,18 @@ export function ControlsPage() {
               </TabsList>
             </Tabs>
           ))}
-        </BothSurfaces>
+        </Surface>
       </Specimen>
 
-      <Specimen title="Tooltip" description="Se abre en un portal, así que siempre usa el tema de la página.">
-        <BothSurfaces>
+      <Specimen title="Tooltip" description="Información secundaria al pasar el cursor o enfocar.">
+        <Surface>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button variant="outline">Pasa por encima</Button>
             </TooltipTrigger>
             <TooltipContent>Tiempo sin tráfico, con velocidades fijas</TooltipContent>
           </Tooltip>
-        </BothSurfaces>
+        </Surface>
       </Specimen>
     </>
   );

@@ -4,7 +4,8 @@ import routeFixture from "@/mocks/route-sol-campus-sur.json";
 import { camerasAlongRoute, makeCamera, routeCorridor, routeLengthM } from "./geo";
 import type { CameraCollection, Route } from "./types";
 
-const route = routeFixture as Route;
+// Ruta real de CartoCiudad (Sol → Campus Sur): solo hacen falta la geometría y la distancia.
+const route = routeFixture as Pick<Route, "geometry" | "distanceM">;
 const cameras = camerasFixture as CameraCollection;
 
 describe("camerasAlongRoute", () => {

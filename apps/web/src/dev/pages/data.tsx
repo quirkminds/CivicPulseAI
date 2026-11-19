@@ -1,5 +1,5 @@
 import { ClockIcon, EuroIcon, LeafIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,20 +12,24 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { TrayectoPanel } from "@/features/trayecto/trayecto-panel";
+import { ManeuverList } from "@/features/trayecto/maneuver-list";
+import { type TrayectoLayer, TrayectoPanel } from "@/features/trayecto/trayecto-panel";
 import { CAMPUS_SUR, DEFAULT_ORIGIN } from "@/lib/campus";
-import { BothSurfaces, Specimen, Surface } from "../components/specimen";
-import { sampleCamerasOnRoute, sampleRoute } from "../fixtures";
+import { Specimen, Surface } from "../components/specimen";
+import { sampleCamerasOnRoute, sampleTrip, sampleTripWithTraffic, sampleWalkTrip } from "../fixtures";
 
 const badgeVariants = ["default", "secondary", "outline", "ghost", "destructive", "link"] as const;
 
 const noop = () => {};
 
 export function DataPage() {
+  const [activeLayer, setActiveLayer] = useState<TrayectoLayer | null>(null);
+  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
+
   return (
     <>
-      <Specimen title="Badge" description="Etiquetas cortas: «Datos de ejemplo», km de cada cámara.">
-        <BothSurfaces>
+      <Specimen title="Badge" description="Etiquetas cortas: «Ejemplo», precios €/l y km de cada cámara.">
+        <Surface>
           {badgeVariants.map((variant) => (
             <Badge key={variant} variant={variant}>
               {variant}
@@ -34,12 +38,12 @@ export function DataPage() {
           <Badge variant="outline" className="w-14 justify-center tabular-nums">
             km 4,2
           </Badge>
-        </BothSurfaces>
+        </Surface>
       </Specimen>
 
-      <Specimen title="Card" description="Anatomía completa y el tamaño sm que usan las estadísticas.">
-        <BothSurfaces className="items-start">
-          <Card className="w-full">
+      <Specimen title="Card" description="Anatomía completa sobre superficie oscura.">
+        <Surface className="items-start">
+          <Card className="w-full max-w-md">
             <CardHeader>
               <CardTitle>Coche</CardTitle>
               <CardDescription>Sol → Campus Sur, ida y vuelta</CardDescription>
@@ -48,7 +52,7 @@ export function DataPage() {
               </CardAction>
             </CardHeader>
             <CardContent className="grid grid-cols-3 gap-2">
-              <Figure icon={<EuroIcon />} label="Al mes" value="88,8 €" />
+              <Figure icon={<EuroIcon />} label="Al mes" value="28,84 €" />
               <Figure icon={<ClockIcon />} label="Al día" value="24 min" />
               <Figure icon={<LeafIcon />} label="CO₂ / mes" value="42 kg" />
             </CardContent>
@@ -59,37 +63,109 @@ export function DataPage() {
               </Button>
             </CardFooter>
           </Card>
-        </BothSurfaces>
+        </Surface>
       </Specimen>
 
       <Specimen title="Separator" description="Divide bloques sin añadir peso.">
-        <BothSurfaces className="flex-col items-stretch">
+        <Surface className="flex-col items-stretch">
           <p className="text-sm">Coche</p>
           <Separator />
           <p className="text-sm">Metro / Cercanías</p>
-        </BothSurfaces>
+        </Surface>
       </Specimen>
 
       <Specimen
-        title="Panel de «Mi trayecto»"
-        description="El componente real de la app con los datos de ejemplo: estadísticas, lista de cámaras y selección."
+        title="Indicaciones paso a paso"
+        description="Maniobras de Valhalla en castellano (Sol → Campus Sur en coche). Icono por tipo de giro y distancia hasta el siguiente paso; al pulsar uno, el mapa vuela a él."
       >
-        {(["light", "dark"] as const).map((tone) => (
-          <Surface key={tone} tone={tone} className="block">
+        <Surface className="block">
+          <div className="max-w-sm rounded-2xl border bg-background/85 p-3">
+            <ManeuverList maneuvers={sampleTrip.route.maneuvers.slice(0, 12)} />
+          </div>
+        </Surface>
+      </Specimen>
+
+      <Specimen
+        title="Panel con avisos de la DGT"
+        description="Tiempo con tráfico (estimado), corte total esquivado y tramo lento con su retraso. Cada aviso lleva al punto en el mapa."
+      >
+        <Surface className="block">
+          <div className="max-w-sm rounded-2xl border bg-background/85 p-4">
             <TrayectoPanel
               originLabel={DEFAULT_ORIGIN.label}
+              onOriginSelect={noop}
+              destinationLabel={`${CAMPUS_SUR.name} (${CAMPUS_SUR.school})`}
+              onDestinationSelect={noop}
+              onLocate={noop}
               campusId={CAMPUS_SUR.id}
               onCampusChange={noop}
               mode="car"
               onModeChange={noop}
               loading={false}
-              route={sampleRoute}
-              cameras={sampleCamerasOnRoute.slice(0, 5)}
-              selectedCameraId={sampleCamerasOnRoute[1]?.properties.id ?? null}
+              trip={sampleTripWithTraffic}
+              cameras={[]}
+              activeLayer={null}
+              onToggleLayer={noop}
+              selectedCameraId={null}
               onSelectCamera={noop}
             />
-          </Surface>
-        ))}
+          </div>
+        </Surface>
+      </Specimen>
+
+      <Specimen
+        title="Panel a pie"
+        description="Sin coste, gasolineras ni cámaras: tiempo, distancia e indicaciones. Destino arrastrado en el mapa (ningún campus marcado)."
+      >
+        <Surface className="block">
+          <div className="max-w-sm rounded-2xl border bg-background/85 p-4">
+            <TrayectoPanel
+              originLabel="Mi ubicación"
+              onOriginSelect={noop}
+              destinationLabel="Calle Atocha"
+              onDestinationSelect={noop}
+              onLocate={noop}
+              campusId={null}
+              onCampusChange={noop}
+              mode="walk"
+              onModeChange={noop}
+              loading={false}
+              trip={sampleWalkTrip}
+              cameras={[]}
+              activeLayer="directions"
+              onToggleLayer={noop}
+              selectedCameraId={null}
+              onSelectCamera={noop}
+            />
+          </div>
+        </Surface>
+      </Specimen>
+
+      <Specimen
+        title="Panel de «Mi trayecto» (divulgación progresiva)"
+        description="Empieza limpio (solo veredicto y píldoras). Pulsa una alerta o capa para desplegar su detalle y gráfica."
+      >
+        <Surface className="block">
+          <div className="max-w-sm rounded-2xl border bg-background/85 p-4">
+            <TrayectoPanel
+              originLabel={DEFAULT_ORIGIN.label}
+              onOriginSelect={noop}
+              destinationLabel={`${CAMPUS_SUR.name} (${CAMPUS_SUR.school})`}
+              onDestinationSelect={noop}
+              campusId={CAMPUS_SUR.id}
+              onCampusChange={noop}
+              mode="car"
+              onModeChange={noop}
+              loading={false}
+              trip={sampleTrip}
+              cameras={sampleCamerasOnRoute.slice(0, 8)}
+              activeLayer={activeLayer}
+              onToggleLayer={(layer) => setActiveLayer((prev) => (prev === layer ? null : layer))}
+              selectedCameraId={selectedCameraId}
+              onSelectCamera={setSelectedCameraId}
+            />
+          </div>
+        </Surface>
       </Specimen>
     </>
   );

@@ -1,43 +1,48 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchCameras, fetchRoute } from "@/lib/api";
-import { camerasAlongRoute, routeCorridor } from "@/lib/geo";
-import type { CameraCollection, LngLat, Route } from "@/lib/types";
+import { fetchTrip, toCameraOnRoute } from "@/lib/api";
+import { routeCorridor } from "@/lib/geo";
+import type { LngLat, TravelMode, Trip } from "@/lib/types";
 
+/** Radios que aplica la API (apps/api/store): se muestran en el panel y la franja del mapa. */
 export const CAMERA_CORRIDOR_M = 300;
+export const STATION_RADIUS_M = 1000;
+export const INCIDENT_RADIUS_M = 500;
 
 type State =
   | { status: "loading" }
   | { status: "error"; error: string }
-  | { status: "ready"; route: Route; cameras: CameraCollection };
+  | { status: "ready"; trip: Trip };
 
 type Settled = Exclude<State, { status: "loading" }>;
 
 const LOADING: State = { status: "loading" };
 
-export function useTrayecto(origin: LngLat, destination: LngLat) {
-  const key = `${origin.join(",")}|${destination.join(",")}`;
+export function useTrayecto(origin: LngLat, destination: LngLat, mode: TravelMode) {
+  const key = `${origin.join(",")}|${destination.join(",")}|${mode}`;
   // Guarda el último resultado junto a la ruta que lo pidió: si no coincide con la actual, está cargando.
   const [settled, setSettled] = useState<{ key: string; state: Settled } | null>(null);
 
   useEffect(() => {
     const ctrl = new AbortController();
-    Promise.all([fetchRoute(origin, destination, ctrl.signal), fetchCameras(ctrl.signal)])
-      .then(([route, cameras]) => setSettled({ key, state: { status: "ready", route, cameras } }))
+    fetchTrip(origin, destination, mode, ctrl.signal)
+      .then((trip) => setSettled({ key, state: { status: "ready", trip } }))
       .catch((err: unknown) => {
         if (ctrl.signal.aborted) return;
         const error = err instanceof Error ? err.message : String(err);
         setSettled({ key, state: { status: "error", error } });
       });
     return () => ctrl.abort();
-  }, [key, origin, destination]);
+  }, [key, origin, destination, mode]);
 
   const state: State = settled?.key === key ? settled.state : LOADING;
 
   const derived = useMemo(() => {
     if (state.status !== "ready") return null;
+    const { trip } = state;
     return {
-      corridor: routeCorridor(state.route.geometry, CAMERA_CORRIDOR_M),
-      camerasOnRoute: camerasAlongRoute(state.route.geometry, state.cameras, CAMERA_CORRIDOR_M),
+      trip,
+      corridor: routeCorridor(trip.route.geometry, CAMERA_CORRIDOR_M),
+      camerasOnRoute: trip.cameras.map(toCameraOnRoute),
     };
   }, [state]);
 

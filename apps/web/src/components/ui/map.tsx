@@ -3,6 +3,7 @@
 import type * as MapLibreGL from "maplibre-gl";
 import type { PopupOptions, MarkerOptions } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import type * as GeoJSON from "geojson";
 import {
   createContext,
@@ -30,9 +31,8 @@ function loadMapLibre() {
   maplibrePromise ??= import("maplibre-gl")
     .then((lib) => {
       if (!lib.getWorkerUrl()) {
-        lib.setWorkerUrl(
-          `https://unpkg.com/maplibre-gl@${lib.getVersion()}/dist/maplibre-gl-worker.mjs`,
-        );
+        // CivicPulse: sirve el worker con la aplicación para que las capas locales arranquen sin CDN.
+        lib.setWorkerUrl(workerUrl);
       }
       return lib;
     })
@@ -1891,7 +1891,7 @@ function MapGeoJSON<
   const mergedFillPaint = useMemo(
     () =>
       mergeHoverPaint(
-        { "fill-color": defaults.fill, ...(fillPaint || {}) },
+        { "fill-color": defaults.fill, ...fillPaint },
         fillHoverPaint,
       ),
     [defaults.fill, fillPaint, fillHoverPaint],
@@ -1900,7 +1900,7 @@ function MapGeoJSON<
     () => ({
       "line-color": defaults.line,
       "line-width": 0.5,
-      ...(linePaint || {}),
+      ...linePaint,
     }),
     [defaults.line, linePaint],
   );
