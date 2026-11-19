@@ -32,3 +32,41 @@ El repositorio final debe incluir:
 - 💻 Código fuente completo y funcional.
 - 📄 `AI_USAGE.md`.
 - 🔗 Enlaces a las fuentes de datos abiertas utilizadas.
+
+---
+
+## 💸 Nuestro proyecto: Vive más barato y pierde menos tiempo
+
+Un asistente para estudiantes y particulares que les dice cómo moverse y cuándo gastar energía para que les cueste lo mínimo, en euros y en minutos, con datos oficiales.
+
+- **Mi trayecto:** coche o transporte público hasta el campus, con tiempo, coste, CO₂ y cámaras en la ruta.
+- **Mi casa:** las horas más baratas de la luz.
+- **Mi barrio:** qué parte de la renta de tu zona se va en moverte y en energía.
+
+### Estructura
+
+```
+apps/
+  web/   Vite + React + Tailwind + shadcn/ui + mapcn (MapLibre)
+  api/   Go + chi + PostgreSQL/PostGIS: ingesta de fuentes y API (contrato en openapi.yaml)
+```
+
+### Arranque
+
+```sh
+bun install
+bun run dev:web                                # http://localhost:5173 con datos de ejemplo
+bun run --filter @civicpulse/api db:up         # Postgres 18 + PostGIS en Docker
+cp apps/api/.env.example apps/api/.env.local
+bun run dev:api                                # http://localhost:8080/healthz
+```
+
+Para que la web use la API, pon `VITE_API_URL=http://localhost:8080` en `apps/web/.env.local`.
+
+### 🔗 Fuentes de datos abiertas
+
+| Fuente | Uso |
+| --- | --- |
+| [CartoCiudad (IGN/CNIG), API de rutas](https://www.cartociudad.es/services/api/route?orig=40.4168,-3.7038&dest=40.3896,-3.6283&locale=es&vehicle=CAR) | Ruta y tiempo en coche |
+| [Ayuntamiento de Madrid, cámaras de tráfico (CCTV.kml)](https://informo.madrid.es/informo/tmadrid/CCTV.kml) | Cámaras de la ruta con foto en directo |
+| © OpenStreetMap contributors · © CARTO | Mapa base |
