@@ -1,0 +1,27 @@
+{
+  "name": "civicpulse",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "bun --filter './apps/*' dev",
+    "dev:web": "bun --filter @civicpulse/web dev",
+    "dev:api": "bun --filter @civicpulse/api dev",
+    "test": "bun --filter '*' test",
+    "test:web": "bun --filter @civicpulse/web test",
+    "test:api": "bun --filter @civicpulse/api test",
+    "build": "bun --filter './apps/*' build",
+    "typecheck": "bun --filter '*' typecheck",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "lint:openapi": "bun --filter @civicpulse/api lint:openapi",
+    "probe": "bun --filter @civicpulse/api probe"
+  },
+  "devDependencies": {
+    "oxlint": "^1.90.0",
+    "typescript": "^7.0.2"
+  }
+}
