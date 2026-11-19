@@ -8,20 +8,22 @@ Registro de todo lo que consume CivicPulse. Cada fuente se clasifica con los mis
 
 | Fuente | Organismo | Acceso | Cambia | CORS | Dónde se consume | Estado |
 | --- | --- | --- | --- | --- | --- | --- |
-| CartoCiudad: rutas | Estatal (IGN/CNIG) | API bajo demanda | Por petición | No | API Go (`/v1/route`) | ✅ Verificada |
-| CartoCiudad: geocodificador | Estatal (IGN/CNIG) | API bajo demanda | Por petición | Sí | Navegador | ✅ Verificada |
+| OpenStreetMap (extracto de Madrid, Geofabrik) + Valhalla | Comunidad OSM | Fichero `.pbf` + motor local en Docker | Diaria (el extracto) | — | API Go (`/v1/trip`) | ✅ Verificada |
+| CartoCiudad: rutas | Estatal (IGN/CNIG) | API bajo demanda | Por petición | No | API Go (`/v1/trip`, respaldo) | ✅ Verificada |
+| CartoCiudad: geocodificador | Estatal (IGN/CNIG) | API bajo demanda | Por petición | Sí | Navegador (buscador de «Mi trayecto», `lib/geocoder.ts`) | ✅ Verificada |
 | Mapas base IGN (vectorial, PNOA) | Estatal (IGN/CNIG) | Teselas | Estática | Sí | mapcn (`styles`) | ✅ Verificada (con parche, ver abajo) |
 | Precios de carburantes | Estatal (Ministerio) | API bajo demanda | Diaria (varias veces al día) | Sí | Ingesta en PostGIS o Worker | ✅ Verificada |
 | DGT: cámaras | Estatal (DGT) | Fichero DATEX II | Diaria | No | Worker o ingesta en PostGIS | ✅ Verificada |
 | DGT: incidencias | Estatal (DGT) | Feed DATEX II | Minutos | No | Ingesta periódica en PostGIS | ✅ Verificada |
 | Renfe: GTFS Cercanías | Estatal (Renfe) | Fichero ZIP | Diaria | No | Ingesta en PostGIS | ✅ Verificada |
 | Renfe: GTFS-RT (retrasos y avisos) | Estatal (Renfe) | Feed en vivo | Segundos | No | API Go (proxy con caché corta) | ✅ Verificada |
-| REE: PVPC por horas (REData) | Estatal (REE) | API bajo demanda | Diaria | Sí | API Go o navegador | ✅ Verificada |
+| REE: generación, demanda, CO₂ y precios (ESIOS) | Estatal (REE) | API con clave | 5 min | — | API Go (`/v1/electricity/*`) | ✅ Verificada |
+| REE: PVPC por horas (REData) | Estatal (REE) | API bajo demanda | Diaria | Sí | API Go (respaldo sin clave) | ✅ Verificada |
 | Ayto. Madrid: cámaras (`CCTV.kml`) | Municipal | Fichero KML | Estática | No | Ingesta en PostGIS | ⚠️ Bloqueada desde nuestra IP |
 | Ayto. Madrid: tráfico en vivo (`pm.xml`) | Municipal | Feed XML | 5 min | No | Ingesta periódica en PostGIS | ⚠️ Bloqueada, formato sin ver |
 | Ayto. Madrid: radares fijos y móviles | Municipal | CSV/XLSX | Estática | — | Ingesta en PostGIS | ⚠️ URL localizada, bloqueada |
 | CRTM: GTFS Metro | Autonómico (CRTM) | Fichero ZIP | Mensual | Sí | Ingesta en PostGIS | ❌ El feed público caducó el 27/05/2026 |
-| INE: renta por sección censal (ADRH) | Estatal (INE) | API JSON | Anual | — | Ingesta en PostGIS | 🔎 API localizada, falta la tabla de Madrid |
+| INE: Atlas de renta y demografía (ADRH) y seccionado | Estatal (INE) | CSV y ZIP/SHP | Anual | No requerido | Importación por edición a PostGIS | Descargas verificadas |
 | MITECO: factores de emisión de CO₂ | Estatal (MITECO) | PDF/XLS | Anual | — | Constantes en código, con cita | 🔎 Por confirmar los valores |
 
 ## Cómo se clasifica una fuente
@@ -68,11 +70,19 @@ Todos los probamos el 2026-11-19 con `Origin: http://localhost:5173`.
 | `GET /geocoder/api/geocoder/candidates?q=&limit=` | Autocompletar direcciones (origen del usuario) | **Sí** (`*`) | **Navegador** (o la API, si queremos caché) |
 | `GET /geocoder/api/geocoder/find?q=` · `?id=&type=` | Resolver un candidato a coordenadas; `outputformat=geojson` opcional | **Sí** | Navegador |
 | `GET /geocoder/api/geocoder/reverseGeocode?lon=&lat=` | Coordenadas → dirección (botón «mi ubicación»); portal más cercano en 350 m | **Sí** | Navegador |
-| `GET /services/api/route?orig=lat,lng&dest=lat,lng&locale=es&vehicle=CAR\|WALK` | Ruta en coche o a pie | **No** | **API Go** (`/v1/route`) |
+| `GET /services/api/route?orig=lat,lng&dest=lat,lng&locale=es&vehicle=CAR\|WALK` | Ruta en coche o a pie | **No** | **API Go** (`/v1/trip`, solo si Valhalla no responde) |
 | `GET /services/api/serviceArea?lon=&lat=&dist=` | Polígono alcanzable en `dist` metros por la red viaria | **No** | API Go, si lo usamos |
 | `POST /geocoder/api/geocoder/unifiedcsvgeocoding` | Geocodificación masiva por CSV (hasta 60 000 filas) | — | Ingesta, si una fuente trae direcciones sin coordenadas |
 
 **Geocodificador.** Devuelve `lat`, `lng` (WGS84), `address`, `postalCode`, `muni`, `type` (`portal`, `callejero`, `municipio`, `toponimo`…) y `refCatastral`. Acepta filtros (`municipio_filter`, `provincia_filter`, `cod_postal_filter`…) y `no_process` para excluir tipos. Para el origen del usuario conviene filtrar por la Comunidad de Madrid: sin filtro, «calle alcalá 100» también devuelve Alcalá de Guadaíra (Sevilla).
+
+Lo que hemos comprobado al montar el buscador (19/11/2026):
+
+- **Filtro:** usamos `provincia_filter=Madrid` (da lo mismo que `comunidad_autonoma_filter`).
+- ⚠️ **Calles, poblaciones y municipios llegan con `lat`/`lng` a `0.0`.** Solo portales y topónimos traen coordenadas. Las demás se piden a `GET /find?id=&type=` al elegirlas (para una calle devuelve un punto sobre ella y su `MULTILINESTRING`).
+- **Ruido:** también devuelve estancos (`expendeduria`), puntos de recarga, `ngbe` y códigos postales; la web los descarta.
+- **Orden:** es el de CartoCiudad y no siempre prioriza Madrid capital: «calle alcala» no saca la de Madrid, pero «alcala 100» y «alcala madrid» sí.
+- **`reverseGeocode`:** sin portal a menos de 350 m responde **204 sin cuerpo**; entonces la web muestra las coordenadas.
 
 **Rutas.** Lo que dice la guía técnica (§ 2.2.2) y lo que hemos comprobado:
 
@@ -81,7 +91,8 @@ Todos los probamos el 2026-11-19 con `Origin: http://localhost:5173`.
   - ⚠️ Cualquier otro valor (por ejemplo `BUS`) **responde 200 con la ruta a pie**, sin error. La API Go debe validar `vehicle`.
 - **`CAR` usa velocidades fijas:** vía urbana 30 km/h, autopista y autovía 100 km/h, carretera convencional 60 km/h y resto 20 km/h.
 - **No tiene en cuenta el sentido de las calles** y es una distancia «Manhattan» sobre la red viaria. La propia guía dice que `time` «no es fiable para coches».
-  - **Esto justifica nuestro valor añadido:** ajustar el tiempo con el tráfico en vivo del Ayuntamiento (`pm.xml`).
+  - Comprobado: entre Tirso de Molina y Plaza Mayor, ida y vuelta miden lo mismo (486 m), aunque en coche no se puede volver por el mismo camino.
+  - **Por eso las rutas salen de Valhalla** (sección siguiente) y CartoCiudad queda como respaldo oficial.
 - **Ejemplos reales** desde Sol:
   - A Campus Sur: 8,2 km en coche, 11,7 min sin tráfico; 8,1 km a pie.
   - A Montegancedo: 20,9 km en coche.
@@ -120,6 +131,17 @@ WMS de direcciones (`https://www.cartociudad.es/wms-inspire/direcciones-ccpp`), 
 - **Datos de Madrid (19/11/2026):** 895 gasolineras, todas con coordenadas; 858 con gasolina 95 E5 y 863 con gasóleo A. Respuesta de ~1 MB en 0,3 s. CORS `*`.
 - **Uso:** gasolinera más barata a ≤1 km de la ruta y coste por viaje. Va al Worker o a PostGIS porque cambia pocas veces al día.
 
+## OpenStreetMap + Valhalla (motor de rutas local): verificado
+
+- **Qué es:** [Valhalla](https://github.com/valhalla/valhalla) es un motor de rutas libre que corre en local (servicio `valhalla` de `apps/api/compose.yaml`, imagen `ghcr.io/valhalla/valhalla-scripted:3.9.1`) sobre el extracto de OpenStreetMap de la Comunidad de Madrid.
+- **Datos:** `https://download.geofabrik.de/europe/spain/madrid-latest.osm.pbf` (86 MB, actualizado a diario). Se descarga con `bun run --filter @civicpulse/api routing:download` a `apps/api/.valhalla/` (ignorado en git); las teselas se construyen la primera vez (~1 min, 147 MB).
+- **Licencia:** ODbL. Atribución obligatoria «© OpenStreetMap contributors» (está en el mapa).
+- **Por qué:** respeta sentidos únicos, giros prohibidos, zonas peatonales y velocidades por tipo de vía; tiene coche, a pie y bici, e indicaciones en castellano (`directions_options.language: es-ES`).
+  - Ida y vuelta Tirso de Molina ↔ Plaza Mayor: 988 m y 481 m (CartoCiudad: 486 m en ambos sentidos).
+  - Sol → Campus Sur en coche: 12,5 km y 22 min, saliendo por Calle de Tetuán porque Sol es peatonal (CartoCiudad: 8,2 km atravesando la plaza).
+- **Memoria:** con 2 GB en Colima hay que construir sin fronteras administrativas (`build_admins: False`; sus valores por defecto son los de España) y con un hilo. Al servir ocupa ~80 MB.
+- **Esquivar cortes:** la API pasa a Valhalla `exclude_polygons` (un cuadrado de 60 m alrededor de cada corte).
+
 ## DGT: cámaras e incidencias (DATEX II v3.7): verificadas
 
 - **Cámaras:** `https://nap.dgt.es/datex2/v3/dgt/DevicePublication/camaras_datex2_v37.xml` (3,7 MB).
@@ -130,6 +152,14 @@ WMS de direcciones (`https://www.cartociudad.es/wms-inspire/direcciones-ccpp`), 
   - Unas 1 550 activas en España y ~150 en la provincia de Madrid.
   - Tipos: obras, tráfico anómalo, obstrucciones, gestión de velocidad…
   - Cada una trae tramo `from`/`to` (o un punto), carretera, PK, municipio y provincia.
+- **Campos para navegar** (comprobados el 19/11/2026, 1 363 registros):
+  - `roadOrCarriagewayOrLaneManagementType`: `roadClosed` (31, corte total), `carriagewayClosures` (137), `laneClosures` (340), `singleAlternateLineTraffic` (120)…
+  - `abnormalTrafficType`: `slowTraffic` (48). **No hay longitud de cola ni minutos de retraso.**
+  - `temporarySpeedLimit` (en registros `SpeedManagement`) y `tpegDirection` (`northBound`…, a menudo `unknown`).
+- **Cómo los usa `/v1/trip`** (coche):
+  - **Cortes totales:** si la ruta pasa a ≤25 m, se recalcula excluyéndolos. Los cortes de calzada o de carril **no** se excluyen: sin un sentido fiable, excluirlos podría bloquear rutas válidas.
+  - **Tráfico lento:** el tramo cuenta si sus dos extremos están a ≤50 m de la ruta y la ruta pasa por ellos en el mismo orden (si no, es la calzada contraria). El retraso se **estima** suponiendo 20 km/h en ese tramo (`slowTraffic`; 15, 10 y 5 km/h para tráfico denso, retenciones y parado).
+  - Comprobado: Moncloa → Las Rozas por la A-6 suma +5 min por dos tramos lentos; en sentido contrario, ninguno. Un corte real de la M-406 hace que la ruta pase de 2,1 a 3,6 km.
 - **Catálogo:** https://nap.dgt.es/en/dataset/incidencias-dgt-datex2-v3-7. Cubre España salvo el País Vasco y Cataluña.
 - **Sin CORS.** El XML usa varios espacios de nombres; `encoding/xml` empareja por nombre local (ver `apps/api/sources`).
 
@@ -146,11 +176,29 @@ WMS de direcciones (`https://www.cartociudad.es/wms-inspire/direcciones-ccpp`), 
 - **Cruce verificado:** el **100 %** de los `tripId` en vivo existen en el GTFS estático. El feed cubre toda España, así que el núcleo de Madrid se filtra por `route_id` que empieza por **`10T`** (`10T0007C3` = C3).
   - Ejemplo: 123 trenes de Madrid en vivo, 68 con retraso ≥1 min y 5 avisos activos.
 
-## REE: precio de la luz (PVPC): verificada
+## REE: red eléctrica en tiempo real (ESIOS) y PVPC (REData): verificadas
 
-- **REData, sin token y con CORS `*`:** `https://apidatos.ree.es/es/datos/mercados/precios-mercados-tiempo-real?start_date=…T00:00&end_date=…T23:59&time_trunc=hour`.
-  - El bloque `included[type=PVPC]` trae 24 valores en €/MWh con hora local (`+01:00`).
-- **ESIOS** (`https://api.esios.ree.es`, indicador 1001 = PVPC 2.0TD) pide el token que ya tiene el equipo. De momento no hace falta: REData cubre «Mi casa». Si se usa, el token irá solo en `apps/api/.env.local`.
+- **ESIOS** (`https://api.esios.ree.es/indicators/{id}`, clave en la cabecera `x-api-key`, variable `ESIOS_TOKEN` solo en `apps/api/.env.local`).
+  - 1 982 indicadores. A 19/11/2026 respondía también sin clave, pero no se usa así: la clave puede pasar a ser obligatoria.
+  - `time_trunc=hour&time_agg=average` agrega por horas en el servidor. Zonas: Península `geo_id 8741`; mercado diario de España `geo_id 3`.
+  - Los que usamos (sistema peninsular):
+
+| Indicador | Qué es | Frecuencia |
+| --- | --- | --- |
+| 1293 · 544 | Demanda real · prevista (MW) | 5 min (~8 min de retraso) |
+| 1295, 1294, 551, 2080, 1296 | Solar FV, solar térmica, eólica, hidráulica (sin bombeo), biomasa (MW) | 5 min |
+| 549, 550, 1297, 547, 548 | Nuclear, ciclo combinado, cogeneración y resto, carbón, fuel-gas (MW) | 5 min |
+| 2079 · 2078 | Turbinación · consumo de bombeo (MW) | 5 min |
+| 2167 · 2166 | Entrega · carga de baterías (MW) | 5 min |
+| 553 · 554 | Saldo de intercambios internacionales · enlace con Baleares (MW) | 5 min |
+| 10355 | CO₂ asociado a la generación (tCO₂/MWh) | 5 min |
+| 1001 · 1002 | PVPC 2.0TD (€/MWh) · periodo tarifario (1 punta, 2 llano, 3 valle) | Hora; el de mañana hacia las 20:15 |
+| 600 | Mercado diario OMIE (€/MWh) por país | 15 min; el de mañana hacia las 13:00 |
+
+  - `546` (hidráulica) es el **neto con el bombeo** y puede salir negativo: usamos `2080`.
+  - El PVPC menos el mercado diario son los peajes, cargos y otros costes: así se explica que a mediodía el mercado esté a 0 €/MWh y el PVPC siga alto (periodo punta).
+- **REData** (`apidatos.ree.es`, sin clave y con CORS): PVPC por horas. Es el respaldo de `/v1/electricity/today` cuando no hay `ESIOS_TOKEN`.
+- **Uso:** `GET /v1/electricity/now` (mezcla, demanda y CO₂; caché de 2 min) y `GET /v1/electricity/today` (precios por hora con desglose, mezcla horaria, franjas baratas y mercado de mañana; caché de 10 min).
 
 ## Ayuntamiento de Madrid (informo.madrid.es, datos.madrid.es): bloqueadas
 
@@ -170,10 +218,30 @@ WMS de direcciones (`https://www.cartociudad.es/wms-inspire/direcciones-ccpp`), 
 - **El feed vigente** está en el Punto de Acceso Nacional de Transportes: `https://nap.transportes.gob.es/api/Fichero/download/1134`. **Pide una API key** (el registro es gratuito). Acción: que alguien del equipo se registre.
 - **Licencia CRTM:** hay que citar al CRTM como fuente y compartir los derivados con la misma licencia (https://www.crtm.es/licencia-de-uso/).
 
-## INE: renta por zona (ADRH): API localizada
+## INE: Atlas de renta y cartografía censal
 
-- **API JSON de INEbase:** `https://servicios.ine.es/wstempus/js/ES/TABLAS_OPERACION/353` lista las 540 tablas del Atlas de Distribución de Renta de los Hogares. Hay una tabla «Indicadores de renta media y mediana» por provincia (54).
-- **Pendiente:** identificar el Id de la tabla de Madrid (los nombres de tabla no incluyen la provincia) y conseguir los contornos de secciones censales del INE para pintar la coropleta.
+- **Atlas 2024.** Los CSV nacionales [53689](https://ine.es/jaxiT3/Tabla.htm?t=53689) y
+  [53776](https://ine.es/jaxiT3/Tabla.htm?t=53776) contienen renta y demografía de comunidades
+  y provincias. Los ficheros territoriales [30824 y 30832](https://ine.es/dynt3/inebase/index.htm?capsel=5650&padre=12385)
+  cubren municipios, distritos y secciones de toda España. La API conserva los valores publicados por nivel.
+- **[Cartografía censal del INE](https://www.ine.es/dyngs/DAB/es/index.htm?cid=1389).**
+  El Shapefile de 2025 tiene los límites de sección a 1 de enero y los códigos
+  `CCA`, `CPRO`, `CUMUN`, `CUDIS` y `CUSEC`. Los polígonos de los niveles superiores
+  se construyen a partir de estas geometrías. Se conservan los límites completos y una copia
+  simplificada para el mapa.
+- **Importación y consumo.** La edición registra URL y SHA-256 de cada original. El importador
+  lee los CSV en flujo, carga PostGIS y publica la edición en una transacción.
+  La web consulta `GET /v1/neighborhood/zones`. Atribución visible al INE.
+- **Respaldo del mapa.** `apps/web/public/maps/ine-territorios-2025.geojson` contiene las
+  geometrías simplificadas de las 19 comunidades y ciudades autónomas de la cartografía censal
+  del 1 de enero de 2025. Se obtiene de la respuesta raíz de `/v1/neighborhood/zones`,
+  conservando solo el tipo y la geometría de las entidades. El mapa usa esos límites si faltan
+  teselas de CARTO. Los indicadores se consultan siempre en la API.
+- **Interpretación.** La población del Atlas corresponde a residentes en viviendas familiares.
+  En zonas pequeñas, el INE puede publicar una estimación o el valor de su ámbito superior.
+  [Metodología del ADRH](https://ine.es/metodologia/metodologia_adrh.pdf)
+- **Catastro.** El [catálogo INSPIRE](https://www.catastro.hacienda.gob.es/webinspire/) ofrece
+  edificios y parcelas por municipio. Fuera de la primera edición del mapa.
 
 ## MITECO: factores de emisión: por confirmar
 
@@ -266,4 +334,4 @@ CRUCES SOBRE LA RUTA EN COCHE (origen: Puerta del Sol)
     cámaras DGT a ≤300 m: 9 · incidencias DGT a ≤500 m: 6 · gasolineras (G95) a ≤1 km: 25 (más barata 1,499 €/l)
 ```
 
-**Conclusión:** para «Mi trayecto» en coche hay datos de sobra que cruzar sin depender del Ayuntamiento: ruta, gasolineras, cámaras DGT e incidencias. Para Cercanías, el tiempo real casa al 100 % con los horarios. Lo que falta: Metro (API key del NAP), tráfico en vivo y cámaras municipales (bloqueo), y renta del INE (identificar la tabla).
+**Conclusión:** para «Mi trayecto» en coche hay datos de sobra que cruzar sin depender del Ayuntamiento: ruta, gasolineras, cámaras DGT e incidencias. Para Cercanías, el tiempo real casa al 100 % con los horarios. Lo que falta: Metro (API key del NAP), tráfico en vivo y cámaras municipales (bloqueo). El Atlas del INE tiene su propia importación por edición, documentada arriba.
