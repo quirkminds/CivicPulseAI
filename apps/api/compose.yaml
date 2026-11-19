@@ -1,4 +1,4 @@
-# CivicPulse: base de datos solo para desarrollo local. En producción Postgres + PostGIS corre en el VPS.
+# CivicPulse: servicios solo para desarrollo local (base de datos y motor de rutas).
 name: civicpulse-dev
 
 services:
@@ -21,6 +21,32 @@ services:
       interval: 2s
       timeout: 3s
       retries: 15
+
+  # Motor de rutas (coche, a pie, bici) sobre OpenStreetMap de la Comunidad de Madrid. Respeta sentidos únicos,
+  # giros prohibidos y límites de velocidad, y da indicaciones en castellano. Construye las teselas a partir de
+  # .valhalla/madrid-latest.osm.pbf (lo descarga `bun run routing:download`); la primera vez tarda unos minutos
+  # (progreso: `bun run routing:logs`).
+  valhalla:
+    image: ghcr.io/valhalla/valhalla-scripted:3.9.1
+    environment:
+      use_tiles_ignore_pbf: "True" # con teselas ya construidas no vuelve a procesar el .pbf
+      # Sin fronteras administrativas: el extracto es solo Madrid y los valores por defecto (circular por la
+      # derecha, accesos estándar) son los de España. Con 2 GB en Colima ese paso se queda sin memoria.
+      build_admins: "False"
+      build_time_zones: "True" # necesario para rutas con hora de salida
+      build_elevation: "False"
+      build_transit: "False"
+      server_threads: "1" # hilos al construir y al servir: con 2 GB en Colima, 2 hilos se quedan sin memoria
+    ports:
+      - "127.0.0.1:8002:8002"
+    volumes:
+      - ./.valhalla:/custom_files
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8002/status > /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15m
 
 volumes:
   postgres:

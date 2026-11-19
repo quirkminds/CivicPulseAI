@@ -13,12 +13,27 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	_ "time/tzdata" // Europe/Madrid aunque la imagen del VPS no traiga zoneinfo
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
+	"civicpulse/api/ingest"
 	"civicpulse/api/migrations"
+	"civicpulse/api/routing"
+	"civicpulse/api/sources"
+	"civicpulse/api/store"
 )
+
+// madridTZ es la hora peninsular: la del PVPC y la que ve el usuario.
+var madridTZ = func() *time.Location {
+	loc, err := time.LoadLocation("Europe/Madrid")
+	if err != nil {
+		panic(err) // imposible con time/tzdata embebido
+	}
+
+	return loc
+}()
 
 func main() {
 	// Valores locales de desarrollo (gitignored). Nunca pisa variables ya definidas y en el VPS no hace nada.
@@ -64,13 +79,36 @@ func run(ctx context.Context, getenv func(string) string) error {
 		return err
 	}
 
+	src := sources.NewClient()
+	// Opcional: sin ella, «Mi casa» usa REData (solo precios) y /v1/electricity/now responde 503.
+	src.ESIOSToken = getenv("ESIOS_TOKEN")
+
+	// Opcional: sin Valhalla, las rutas salen de CartoCiudad (sin sentidos únicos ni bici).
+	var rt router
+	if url := getenv("VALHALLA_URL"); url != "" {
+		rt = routing.NewClient(url)
+	}
+
+	a := &api{
+		logger:         logger,
+		db:             db,
+		allowedOrigins: splitList(env["ALLOWED_ORIGINS"]),
+		store:          store.New(db),
+		src:            src,
+		router:         rt,
+		renfe:          &renfeStatic{},
+		elecNow:        &cached[electricityNow]{ttl: 2 * time.Minute},
+		elecToday:      &cached[electricityToday]{ttl: 10 * time.Minute},
+		transit:        &cached[transitResponse]{ttl: 30 * time.Second},
+	}
+
+	// Ingesta en segundo plano: las capas se cargan al arrancar y luego cada una a su ritmo.
+	ingest.Run(ctx, logger, a.store, ingest.Layers(a.store, a.src))
+	go a.renfe.keepFresh(ctx, logger, a.src)
+
 	server := &http.Server{
-		Addr: env["ADDR"],
-		Handler: newRouter(&api{
-			logger:         logger,
-			db:             db,
-			allowedOrigins: splitList(env["ALLOWED_ORIGINS"]),
-		}),
+		Addr:              env["ADDR"],
+		Handler:           newRouter(a),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

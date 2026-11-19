@@ -1,0 +1,232 @@
+{
+ "trip": {
+  "locations": [
+   {
+    "type": "break",
+    "lat": 40.4124,
+    "lon": -3.7046,
+    "side_of_street": "right",
+    "original_index": 0
+   },
+   {
+    "type": "break",
+    "lat": 40.4148,
+    "lon": -3.7088,
+    "side_of_street": "right",
+    "original_index": 1
+   }
+  ],
+  "legs": [
+   {
+    "maneuvers": [
+     {
+      "type": 2,
+      "instruction": "Conduzca hacia el este por Plaza de Tirso de Molina.",
+      "verbal_succinct_transition_instruction": "Conduzca hacia el este. Despu\u00e9s Gire a la izquierda hacia Calle del Doctor Cortezo.",
+      "verbal_pre_transition_instruction": "Conduzca hacia el este por Plaza de Tirso de Molina. Despu\u00e9s Gire a la izquierda hacia Calle del Doctor Cortezo.",
+      "verbal_post_transition_instruction": "Contin\u00fae durante 50 metros.",
+      "street_names": [
+       "Plaza de Tirso de Molina"
+      ],
+      "bearing_after": 94,
+      "time": 10.217,
+      "length": 0.052,
+      "cost": 9.85,
+      "begin_shape_index": 0,
+      "end_shape_index": 3,
+      "verbal_multi_cue": true,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 15,
+      "instruction": "Gire a la izquierda hacia Calle del Doctor Cortezo.",
+      "verbal_transition_alert_instruction": "Gire a la izquierda hacia Calle del Doctor Cortezo.",
+      "verbal_succinct_transition_instruction": "Gire a la izquierda.",
+      "verbal_pre_transition_instruction": "Gire a la izquierda hacia Calle del Doctor Cortezo.",
+      "verbal_post_transition_instruction": "Contin\u00fae durante 200 metros.",
+      "street_names": [
+       "Calle del Doctor Cortezo"
+      ],
+      "bearing_before": 88,
+      "bearing_after": 10,
+      "time": 47.166,
+      "length": 0.192,
+      "cost": 75.795,
+      "begin_shape_index": 3,
+      "end_shape_index": 9,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 15,
+      "instruction": "Gire a la izquierda hacia Plaza de Jacinto Benavente.",
+      "verbal_transition_alert_instruction": "Gire a la izquierda hacia Plaza de Jacinto Benavente.",
+      "verbal_succinct_transition_instruction": "Gire a la izquierda.",
+      "verbal_pre_transition_instruction": "Gire a la izquierda hacia Plaza de Jacinto Benavente.",
+      "verbal_post_transition_instruction": "Contin\u00fae durante 100 metros.",
+      "street_names": [
+       "Plaza de Jacinto Benavente"
+      ],
+      "bearing_before": 11,
+      "bearing_after": 295,
+      "time": 16.438,
+      "length": 0.099,
+      "cost": 53.394,
+      "begin_shape_index": 9,
+      "end_shape_index": 17,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 23,
+      "instruction": "Mant\u00e9ngase a la derecha para tomar Calle de Atocha.",
+      "verbal_transition_alert_instruction": "Mant\u00e9ngase a la derecha para tomar Calle de Atocha.",
+      "verbal_pre_transition_instruction": "Mant\u00e9ngase a la derecha para tomar Calle de Atocha.",
+      "verbal_post_transition_instruction": "Contin\u00fae durante 400 metros.",
+      "street_names": [
+       "Calle de Atocha"
+      ],
+      "bearing_before": 291,
+      "bearing_after": 298,
+      "time": 67.912,
+      "length": 0.432,
+      "cost": 107.415,
+      "begin_shape_index": 17,
+      "end_shape_index": 69,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 14,
+      "instruction": "Gire completamente a la izquierda hacia Plaza del Comandante Las Morenas.",
+      "verbal_transition_alert_instruction": "Gire completamente a la izquierda hacia Plaza del Comandante Las Morenas.",
+      "verbal_succinct_transition_instruction": "Gire completamente a la izquierda. Despu\u00e9s Gire a la derecha hacia Calle Mayor.",
+      "verbal_pre_transition_instruction": "Gire completamente a la izquierda hacia Plaza del Comandante Las Morenas. Despu\u00e9s Gire a la derecha hacia Calle Mayor.",
+      "verbal_post_transition_instruction": "Contin\u00fae durante 70 metros.",
+      "street_names": [
+       "Plaza del Comandante Las Morenas"
+      ],
+      "bearing_before": 310,
+      "bearing_after": 173,
+      "time": 11.974,
+      "length": 0.072,
+      "cost": 43.055,
+      "begin_shape_index": 69,
+      "end_shape_index": 84,
+      "verbal_multi_cue": true,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 10,
+      "instruction": "Gire a la derecha hacia Calle Mayor.",
+      "verbal_transition_alert_instruction": "Gire a la derecha hacia Calle Mayor.",
+      "verbal_succinct_transition_instruction": "Gire a la derecha. Despu\u00e9s Gire a la izquierda hacia Traves\u00eda de Bringas.",
+      "verbal_pre_transition_instruction": "Gire a la derecha hacia Calle Mayor. Despu\u00e9s Gire a la izquierda hacia Traves\u00eda de Bringas.",
+      "verbal_post_transition_instruction": "Contin\u00fae durante 20 metros.",
+      "street_names": [
+       "Calle Mayor"
+      ],
+      "bearing_before": 173,
+      "bearing_after": 253,
+      "time": 6.405,
+      "length": 0.015,
+      "cost": 25.376,
+      "begin_shape_index": 84,
+      "end_shape_index": 86,
+      "verbal_multi_cue": true,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 15,
+      "instruction": "Gire a la izquierda hacia Traves\u00eda de Bringas.",
+      "verbal_transition_alert_instruction": "Gire a la izquierda hacia Traves\u00eda de Bringas.",
+      "verbal_succinct_transition_instruction": "Gire a la izquierda. Despu\u00e9s Siga por la izquierda en direcci\u00f3n a Calle de la Cava de San Miguel.",
+      "verbal_pre_transition_instruction": "Gire a la izquierda hacia Traves\u00eda de Bringas. Despu\u00e9s Siga por la izquierda en direcci\u00f3n a Calle de la Cava de San Miguel.",
+      "verbal_post_transition_instruction": "Contin\u00fae durante 40 metros.",
+      "street_names": [
+       "Traves\u00eda de Bringas"
+      ],
+      "bearing_before": 253,
+      "bearing_after": 160,
+      "time": 12.058,
+      "length": 0.04,
+      "cost": 27.26,
+      "begin_shape_index": 86,
+      "end_shape_index": 91,
+      "verbal_multi_cue": true,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 16,
+      "instruction": "Siga por la izquierda en direcci\u00f3n a Calle de la Cava de San Miguel.",
+      "verbal_transition_alert_instruction": "Siga por la izquierda en direcci\u00f3n a Calle de la Cava de San Miguel.",
+      "verbal_succinct_transition_instruction": "Siga por la izquierda.",
+      "verbal_pre_transition_instruction": "Siga por la izquierda en direcci\u00f3n a Calle de la Cava de San Miguel.",
+      "verbal_post_transition_instruction": "Contin\u00fae durante 90 metros.",
+      "street_names": [
+       "Calle de la Cava de San Miguel"
+      ],
+      "bearing_before": 179,
+      "bearing_after": 147,
+      "time": 20.855,
+      "length": 0.086,
+      "cost": 46.118,
+      "begin_shape_index": 91,
+      "end_shape_index": 98,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     },
+     {
+      "type": 5,
+      "instruction": "Su destino est\u00e1 a la derecha.",
+      "verbal_transition_alert_instruction": "Su destino estar\u00e1 a la derecha.",
+      "verbal_pre_transition_instruction": "Su destino est\u00e1 a la derecha.",
+      "bearing_before": 163,
+      "time": 0.0,
+      "length": 0.0,
+      "cost": 0.0,
+      "begin_shape_index": 98,
+      "end_shape_index": 98,
+      "travel_mode": "drive",
+      "travel_type": "car"
+     }
+    ],
+    "summary": {
+     "has_time_restrictions": false,
+     "has_toll": false,
+     "has_highway": false,
+     "has_ferry": false,
+     "min_lat": 40.412481,
+     "min_lon": -3.708856,
+     "max_lat": 40.416425,
+     "max_lon": -3.703562,
+     "time": 193.028,
+     "length": 0.988,
+     "cost": 388.267
+    },
+    "shape": "itqalA~nbaFRqCRuYEcFsAQaX{Dgr@}JaRsC_AO{Do@mClKqAhFk@xBq@hC[tAUhAYxAcHv^yCtJ_@vA[rAYvAqCfNuXhrAUlAGn@Cr@An@@x@v@n^JnEJvF?dAEz@I~@M|@WbA[bAa@`Ac@|@i@r@e@h@m@f@i@Vs@Xu@XeH`CkA\\iAX}@Ry@PoJbBkARqAPiD^kFj@aANm@Lo@Rc@R]RYRWXWb@cAhBkHtLWd@O\\IXEN?b@Bh@Dr@J`AJx@Jp@VnA\\nAZv@Rj@Pf@Xf@V^lNsAvEc@f@zCh@|D|CiA|Bg@pCSrC?fCEbF_EbAiAbA_BlBgFf@eAhBkBlSkG"
+   }
+  ],
+  "summary": {
+   "has_time_restrictions": false,
+   "has_toll": false,
+   "has_highway": false,
+   "has_ferry": false,
+   "min_lat": 40.412481,
+   "min_lon": -3.708856,
+   "max_lat": 40.416425,
+   "max_lon": -3.703562,
+   "time": 193.028,
+   "length": 0.988,
+   "cost": 388.267
+  },
+  "status_message": "Found route between points",
+  "status": 0,
+  "units": "kilometers",
+  "language": "es-ES"
+ }
+}

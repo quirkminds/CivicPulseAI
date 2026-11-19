@@ -74,55 +74,12 @@ func parseCartociudadRoute(body []byte) (Route, error) {
 	distance, err1 := strconv.ParseFloat(raw.Distance, 64)
 	ms, err2 := strconv.ParseFloat(raw.Time, 64)
 
-	coords, err3 := decodePolyline(raw.Geom)
+	coords, err3 := geo.DecodePolyline(raw.Geom, 5)
 	if err1 != nil || err2 != nil || err3 != nil {
 		return Route{}, fmt.Errorf("%w: unparseable route", ErrBadResponse)
 	}
 
 	return Route{DistanceM: distance, DurationS: ms / 1000, Coordinates: coords}, nil
-}
-
-// decodePolyline decodifica el formato comprimido de Google (precisión 5, pares lat,lng) a [lng, lat].
-func decodePolyline(s string) ([]geo.Point, error) {
-	var (
-		points   []geo.Point
-		lat, lng int
-	)
-
-	for i := 0; i < len(s); {
-		var deltas [2]int
-
-		for k := range deltas {
-			result, shift := 0, 0
-
-			for {
-				if i >= len(s) {
-					return nil, fmt.Errorf("truncated polyline")
-				}
-
-				b := int(s[i]) - 63
-				i++
-				result |= (b & 0x1f) << shift
-				shift += 5
-
-				if b < 0x20 {
-					break
-				}
-			}
-
-			if result&1 != 0 {
-				deltas[k] = ^(result >> 1)
-			} else {
-				deltas[k] = result >> 1
-			}
-		}
-
-		lat += deltas[0]
-		lng += deltas[1]
-		points = append(points, geo.Point{float64(lng) / 1e5, float64(lat) / 1e5})
-	}
-
-	return points, nil
 }
 
 func latLng(p geo.Point) string {

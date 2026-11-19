@@ -9,6 +9,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+
+	"civicpulse/api/sources"
+	"civicpulse/api/store"
 )
 
 // pinger es lo que el health check necesita de la base de datos (el pool de pgx, o un fake en tests).
@@ -21,6 +24,14 @@ type api struct {
 	logger         *slog.Logger
 	db             pinger
 	allowedOrigins []string
+
+	store     *store.Store
+	src       *sources.Client
+	router    router                    // Valhalla; nil = solo CartoCiudad (sin bici)
+	renfe     *renfeStatic              // GTFS estático de Renfe en memoria
+	elecNow   *cached[electricityNow]   // generación y demanda de los últimos 5 min
+	elecToday *cached[electricityToday] // precios y mezcla de hoy por horas
+	transit   *cached[transitResponse]  // tiempo real de Cercanías
 }
 
 // newRouter es toda la superficie HTTP: middleware y cada ruta, en un solo sitio.
@@ -36,7 +47,13 @@ func newRouter(a *api) http.Handler {
 
 	r.Get("/healthz", a.handleHealth)
 
-	// Próximos, bajo /v1: GET /v1/route (CartoCiudad) y GET /v1/cameras (Ayuntamiento + DGT), ver openapi.yaml.
+	r.Route("/v1", func(r chi.Router) {
+		r.Get("/trip", a.handleTrip)
+		r.Get("/neighborhood/zones", a.handleNeighborhood)
+		r.Get("/electricity/now", a.handleElectricityNow)
+		r.Get("/electricity/today", a.handleElectricityToday)
+		r.Get("/transit/cercanias", a.handleCercanias)
+	})
 
 	return r
 }

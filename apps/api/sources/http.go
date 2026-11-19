@@ -22,6 +22,9 @@ var (
 // Client hace las peticiones salientes. Cada llamada tiene su propio límite de tiempo.
 type Client struct {
 	HTTP *http.Client
+	// ESIOSToken es la clave de api.esios.ree.es. Vacía = ESIOS no disponible (se usa REData).
+	// Va solo en la cabecera x-api-key: nunca en la URL, en logs ni en errores.
+	ESIOSToken string
 }
 
 func NewClient() *Client {
@@ -31,6 +34,11 @@ func NewClient() *Client {
 // get descarga url con un límite de tiempo. Reintenta una vez los fallos transitorios (red, 5xx, 429):
 // todas las peticiones a fuentes son GET idempotentes.
 func (c *Client) get(ctx context.Context, url string, budget time.Duration) ([]byte, error) {
+	return c.getWithHeader(ctx, url, nil, budget)
+}
+
+// getWithHeader es get con cabeceras extra (p. ej. la clave de una API).
+func (c *Client) getWithHeader(ctx context.Context, url string, header http.Header, budget time.Duration) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
 
@@ -45,7 +53,7 @@ func (c *Client) get(ctx context.Context, url string, budget time.Duration) ([]b
 			}
 		}
 
-		body, transient, err := c.try(ctx, url)
+		body, transient, err := c.try(ctx, url, header)
 		if err == nil {
 			return body, nil
 		}
@@ -59,10 +67,14 @@ func (c *Client) get(ctx context.Context, url string, budget time.Duration) ([]b
 	return nil, lastErr
 }
 
-func (c *Client) try(ctx context.Context, url string) (body []byte, transient bool, err error) {
+func (c *Client) try(ctx context.Context, url string, header http.Header) (body []byte, transient bool, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, false, fmt.Errorf("%w: %w", ErrBadResponse, err)
+	}
+
+	for k, v := range header {
+		req.Header[k] = v
 	}
 
 	// Identificación genérica del cliente, sin datos del equipo.

@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: CivicPulse API
-  version: 0.1.0
+  version: 0.2.0
   description: >-
-    Ingesta de datos abiertos oficiales (CartoCiudad, Ayuntamiento de Madrid, DGT) y API de solo lectura
-    para la web. Cada endpoint se describe aquí antes de escribirlo.
+    Ingesta de datos abiertos oficiales y API de solo lectura para la web. Cada endpoint se describe
+    aquí antes de escribirlo. Detalle de las fuentes en docs/fuentes-de-datos.md.
   license:
     name: MIT
     identifier: MIT
@@ -16,6 +16,10 @@ tags:
     description: Estado del servicio.
   - name: trayecto
     description: Datos para «Mi trayecto».
+  - name: casa
+    description: Datos para «Mi casa».
+  - name: barrio
+    description: Atlas de renta y demografía por territorio.
 paths:
   /healthz:
     get:
@@ -39,59 +43,230 @@ paths:
                 status: ok
         "503":
           $ref: "#/components/responses/Problem"
-  /v1/route:
+  /v1/trip:
     get:
-      operationId: getRoute
-      summary: Ruta en coche entre dos puntos (pendiente de implementar)
+      operationId: getTrip
+      summary: Ruta en coche, a pie o en bici con indicaciones, tráfico DGT y capas cruzadas
       description: >-
-        Envuelve CartoCiudad y devuelve la geometría ya decodificada a GeoJSON con coordenadas [lng, lat].
-        CartoCiudad usa velocidades fijas: `durationS` no tiene en cuenta el tráfico.
+        Ruta de Valhalla (OpenStreetMap, motor local): respeta sentidos únicos y giros prohibidos y devuelve
+        indicaciones en castellano. En coche, si la ruta atraviesa un corte total de la DGT se recalcula
+        esquivándolo, y los avisos de tráfico lento suman un retraso estimado. Se cruza en PostGIS con las
+        capas ingeridas: incidencias a ≤500 m y, en coche, gasolineras a ≤1 km, cámaras a ≤300 m y coste con
+        la gasolinera más barata. Si Valhalla no responde, coche y a pie salen de CartoCiudad (sin indicaciones).
       tags: [trayecto]
       parameters:
         - $ref: "#/components/parameters/Orig"
         - $ref: "#/components/parameters/Dest"
+        - name: mode
+          in: query
+          description: Medio de transporte.
+          schema:
+            type: string
+            enum: [car, walk, bike]
+            default: car
+          example: car
+        - name: fuel
+          in: query
+          description: Combustible del coche (solo `mode=car`).
+          schema:
+            type: string
+            enum: [g95, diesel]
+            default: g95
+          example: g95
+        - name: consumption
+          in: query
+          description: Consumo en litros cada 100 km.
+          schema:
+            type: number
+            minimum: 2
+            maximum: 20
+            default: 6.5
+          example: 6.5
+        - name: days
+          in: query
+          description: Días al mes que se hace el trayecto (ida y vuelta).
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 31
+            default: 20
+          example: 20
       responses:
         "200":
-          description: Ruta encontrada.
+          description: Trayecto calculado.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Route"
+                $ref: "#/components/schemas/Trip"
               example:
-                provider: cartociudad
-                distanceM: 8162
-                durationS: 704
-                geometry:
-                  type: LineString
-                  coordinates: [[-3.70381, 40.41684], [-3.62804, 40.38887]]
+                route:
+                  engine: valhalla
+                  mode: car
+                  distanceM: 8420
+                  durationS: 860
+                  trafficDurationS: 905
+                  geometry: { type: LineString, coordinates: [[-3.70381, 40.41684], [-3.62804, 40.38887]] }
+                  maneuvers:
+                    - type: start
+                      instruction: Conduzca hacia el sur por Calle de Carretas.
+                      street: Calle de Carretas
+                      distanceM: 210
+                      durationS: 40
+                      position: [-3.70381, 40.41684]
+                      beginIndex: 0
+                traffic:
+                  closuresAvoided: []
+                  closuresOnRoute: []
+                  slowSegments:
+                    - { id: "18822001", road: M-40, type: slowTraffic, lengthM: 300, delayS: 45, position: [-3.65, 40.37] }
+                cost:
+                  fuel: g95
+                  consumptionL100km: 6.5
+                  pricePerLiter: 1.359
+                  litersPerTrip: 0.53
+                  eurPerTrip: 0.72
+                  eurPerMonth: 28.84
+                  days: 20
+                stations: []
+                cameras: []
+                incidents: []
+                updatedAt:
+                  fuel: "2026-11-19T14:27:02Z"
+                  incidents: "2026-11-19T14:27:02Z"
+                  cameras-dgt: "2026-11-19T14:27:02Z"
+                  cameras-madrid: null
         "400":
           $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "500":
+          $ref: "#/components/responses/Problem"
+        "503":
+          $ref: "#/components/responses/Problem"
+  /v1/electricity/now:
+    get:
+      operationId: getElectricityNow
+      summary: Demanda, mezcla de generación y CO₂ de la red peninsular ahora mismo
+      description: >-
+        Último dato de ESIOS (Red Eléctrica), cada 5 minutos con unos 8 de retraso: qué tecnologías están
+        generando y cuánto, demanda real y prevista, intensidad de CO₂ y a dónde va la energía que sobra
+        (exportaciones, bombeo, baterías, Baleares). Necesita ESIOS_TOKEN en la API.
+      tags: [casa]
+      responses:
+        "200":
+          description: Foto de los últimos 5 minutos.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ElectricityNow"
+              example:
+                at: "2026-11-19T15:35:00+01:00"
+                demandMw: 32300
+                forecastMw: 32100
+                generationMw: 40513
+                renewableShare: 77.7
+                co2GramsPerKwh: 31
+                mix: [{ id: solar-pv, mw: 15694, share: 38.7, renewable: true }]
+                flows: { exportsMw: 4353, pumpingMw: 4097, batteriesChargeMw: 7, balearesMw: 51 }
         "502":
           $ref: "#/components/responses/Problem"
-  /v1/cameras:
+        "503":
+          $ref: "#/components/responses/Problem"
+  /v1/electricity/today:
     get:
-      operationId: listCameras
-      summary: Cámaras de tráfico con foto en directo (pendiente de implementar)
-      description: Cámaras del Ayuntamiento de Madrid (CCTV.kml) y de la DGT (DATEX II), unificadas.
+      operationId: getElectricityToday
+      summary: Precio de la luz de hoy por horas, con su desglose y la mezcla de generación
+      description: >-
+        PVPC 2.0TD (€/kWh) de cada hora de hoy en hora peninsular, desglosado en energía del mercado diario y
+        peajes/cargos, con su periodo tarifario y, para las horas ya transcurridas, demanda y porcentaje
+        renovable, solar y eólico. Incluye la franja más barata de 1, 2 y 3 horas, la hora más barata y la más
+        cara (para explicar la diferencia) y el mercado de mañana si ya está publicado.
+        Con ESIOS_TOKEN usa ESIOS; sin él, REData y solo precios (`source: redata`).
+      tags: [casa]
+      responses:
+        "200":
+          description: Precios de hoy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Electricity"
+              example:
+                date: "2026-11-19"
+                source: esios
+                average: 0.1609
+                hours:
+                  - start: "2026-11-19T01:00:00+01:00"
+                    price: 0.0915
+                    market: 0.0051
+                    regulated: 0.0864
+                    period: valle
+                    demandMw: 22500
+                    renewableShare: 71.2
+                    solarShare: 0.1
+                    windShare: 52.3
+                cheapest: [{ hours: 2, start: "2026-11-19T00:00:00+01:00", average: 0.092, savingPercent: 43 }]
+                extremes: null
+                tomorrowMarket: [{ start: "2026-11-20T00:00:00+01:00", market: 0.0612 }]
+        "502":
+          $ref: "#/components/responses/Problem"
+  /v1/transit/cercanias:
+    get:
+      operationId: getCercaniasStatus
+      summary: Estado en vivo de las líneas de Cercanías Madrid
+      description: >-
+        Retrasos (GTFS-RT de Renfe cruzado con su GTFS estático) y avisos por línea del núcleo de Madrid.
       tags: [trayecto]
       responses:
         "200":
-          description: Todas las cámaras.
+          description: Estado por línea.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CameraCollection"
+                $ref: "#/components/schemas/TransitStatus"
               example:
-                type: FeatureCollection
-                features:
-                  - type: Feature
-                    geometry: { type: Point, coordinates: [-3.688942, 40.466064] }
-                    properties:
-                      id: madrid-06303
-                      name: PLAZA DE CASTILLA (NORTE)
-                      source: madrid
-                      imageUrl: https://informo.madrid.es/cameras/Camara06303.jpg
+                updatedAt: "2026-11-19T15:10:00Z"
+                lines: [{ line: C3, trains: 14, delayedTrains: 9, maxDelayMin: 12, alerts: ["#MadC3 Debido a un reajuste…"] }]
         "502":
+          $ref: "#/components/responses/Problem"
+        "503":
+          description: Los horarios de Renfe aún se están cargando (unos segundos tras arrancar).
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+              example:
+                type: about:blank
+                title: Service Unavailable
+                status: 503
+                code: transit-not-ready
+                detail: Aún se están cargando los horarios de Renfe.
+  /v1/neighborhood/zones:
+    get:
+      operationId: getNeighborhoodZones
+      summary: Zonas censales e indicadores del INE
+      description: Devuelve las comunidades y ciudades autónomas o las subdivisiones de la zona indicada.
+      tags: [barrio]
+      parameters:
+        - name: parent
+          in: query
+          description: Identificador de la zona superior devuelto en la capa anterior.
+          schema:
+            type: string
+            pattern: '^(community-[0-9]{2}|province-[0-9]{2}|municipality-[0-9]{5}|district-[0-9]{7})$'
+          example: municipality-28079
+      responses:
+        "200":
+          description: Polígonos con indicadores para el mapa.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NeighborhoodZones"
+              example: {type: FeatureCollection, year: 2024, geographyDate: "2025-01-01", features: []}
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "503":
           $ref: "#/components/responses/Problem"
 components:
   parameters:
@@ -124,10 +299,83 @@ components:
             type: about:blank
             title: Service Unavailable
             status: 503
-            detail: La base de datos no responde.
-            code: database-unavailable
+            detail: El motor de rutas no responde ahora mismo.
+            code: routing-unavailable
             requestId: host/abc123-000001
   schemas:
+    NeighborhoodZones:
+      description: Colección GeoJSON de las subdivisiones de un territorio.
+      example: {type: FeatureCollection, year: 2024, geographyDate: "2025-01-01", features: []}
+      type: object
+      required: [type, year, geographyDate, features]
+      properties:
+        type:
+          const: FeatureCollection
+        year:
+          type: integer
+          description: Año de los indicadores del Atlas.
+          example: 2024
+        geographyDate:
+          type: string
+          format: date
+          example: "2025-01-01"
+        features:
+          type: array
+          example: []
+          items:
+            type: object
+            required: [type, geometry, properties]
+            properties:
+              type:
+                const: Feature
+              geometry:
+                type: object
+                description: Geometría GeoJSON MultiPolygon en WGS84.
+                required: [type, coordinates]
+                properties:
+                  type:
+                    const: MultiPolygon
+                  coordinates:
+                    type: array
+                    items:
+                      type: array
+                      items:
+                        type: array
+                        items:
+                          type: array
+                          minItems: 2
+                          maxItems: 2
+                          items:
+                            type: number
+              properties:
+                $ref: "#/components/schemas/NeighborhoodZone"
+    NeighborhoodZone:
+      description: Identidad, indicadores del Atlas y extensión de una zona.
+      type: object
+      required: [id, name, level, income, population, meanAge, singlePersonHouseholds, bounds]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        level:
+          type: string
+          enum: [community, province, municipality, district, section]
+        income:
+          type: [number, "null"]
+          description: Renta neta media anual por persona en euros.
+        population:
+          type: [integer, "null"]
+          description: Población en viviendas familiares.
+        meanAge:
+          type: [number, "null"]
+          description: Edad media en años.
+        singlePersonHouseholds:
+          type: [number, "null"]
+          description: Porcentaje de hogares unipersonales.
+        bounds:
+          type: string
+          description: Extensión cartográfica en orden oeste, sur, este y norte, separada por comas.
     Position:
       type: array
       description: "[lng, lat]"
@@ -138,20 +386,38 @@ components:
       maxItems: 2
     Route:
       type: object
-      description: Ruta en coche de CartoCiudad con la geometría en GeoJSON.
-      required: [provider, distanceM, durationS, geometry]
+      description: Ruta calculada, con la geometría en GeoJSON y las indicaciones paso a paso.
+      required: [engine, mode, distanceM, durationS, trafficDurationS, geometry, maneuvers]
       properties:
-        provider:
+        engine:
           type: string
-          const: cartociudad
+          description: Motor que la calculó. `cartociudad` es el respaldo (sin sentidos únicos ni indicaciones).
+          enum: [valhalla, cartociudad]
+          examples: [valhalla]
+        mode:
+          type: string
+          enum: [car, walk, bike]
+          examples: [car]
         distanceM:
           type: integer
-          examples: [8162]
           description: Distancia en metros.
+          examples: [8420]
         durationS:
           type: integer
-          examples: [704]
-          description: Duración en segundos, sin tráfico.
+          description: Duración en segundos sin tráfico en vivo (velocidades por tipo de vía).
+          examples: [860]
+        trafficDurationS:
+          type: integer
+          description: >-
+            durationS más el retraso estimado por los avisos de tráfico lento de la DGT. La DGT no publica
+            velocidades ni longitud de cola: es una estimación.
+          examples: [905]
+        maneuvers:
+          type: array
+          description: Indicaciones en el orden de la marcha. Vacía con el motor de respaldo.
+          examples: [[]]
+          items:
+            $ref: "#/components/schemas/Maneuver"
         geometry:
           type: object
           required: [type, coordinates]
@@ -167,51 +433,484 @@ components:
               examples: [[[-3.70381, 40.41684], [-3.62804, 40.38887]]]
               items:
                 $ref: "#/components/schemas/Position"
-    CameraCollection:
+    Maneuver:
       type: object
-      description: FeatureCollection GeoJSON de cámaras.
-      required: [type, features]
+      description: Una indicación paso a paso.
+      required: [type, instruction, street, distanceM, durationS, position, beginIndex]
       properties:
         type:
           type: string
-          const: FeatureCollection
-        features:
+          description: Tipo de maniobra, para elegir el icono.
+          enum: [start, arrive, straight, slight-right, right, sharp-right, u-turn, sharp-left, left, slight-left,
+            exit-right, exit-left, merge, roundabout, roundabout-exit, ferry]
+          examples: [right]
+        instruction:
+          type: string
+          examples: [Gire a la derecha por Calle de Atocha.]
+        street:
+          type: string
+          description: Primera calle de la maniobra; vacía si no tiene nombre.
+          examples: [Calle de Atocha]
+        distanceM:
+          type: integer
+          description: Metros hasta la siguiente maniobra.
+          examples: [350]
+        durationS:
+          type: integer
+          examples: [62]
+        position:
+          $ref: "#/components/schemas/Position"
+        beginIndex:
+          type: integer
+          description: Índice en `geometry.coordinates` donde empieza la maniobra.
+          examples: [14]
+    TrafficSpot:
+      type: object
+      description: Corte de vía de la DGT relacionado con la ruta.
+      required: [id, road, position]
+      properties:
+        id:
+          type: string
+          examples: ["18811074"]
+        road:
+          type: string
+          examples: [M-607]
+        position:
+          $ref: "#/components/schemas/Position"
+    SlowSegment:
+      type: object
+      description: Tramo de la ruta con tráfico lento según la DGT.
+      required: [id, road, type, lengthM, delayS, position]
+      properties:
+        id:
+          type: string
+          examples: ["18822001"]
+        road:
+          type: string
+          examples: [M-40]
+        type:
+          type: string
+          enum: [slowTraffic, heavyTraffic, queuingTraffic, stationaryTraffic]
+          examples: [slowTraffic]
+        lengthM:
+          type: integer
+          description: Metros de ruta afectados (300 si la DGT da solo un punto).
+          examples: [300]
+        delayS:
+          type: integer
+          description: Retraso estimado en segundos.
+          examples: [45]
+        position:
+          $ref: "#/components/schemas/Position"
+    Traffic:
+      type: object
+      description: Cómo afecta el tráfico de la DGT a la ruta (solo en coche; vacío en los demás modos).
+      required: [closuresAvoided, closuresOnRoute, slowSegments]
+      properties:
+        closuresAvoided:
+          type: array
+          description: Cortes totales que la primera ruta atravesaba y que la ruta final esquiva.
+          examples: [[]]
+          items:
+            $ref: "#/components/schemas/TrafficSpot"
+        closuresOnRoute:
+          type: array
+          description: Cortes que la ruta atraviesa porque no hay alternativa.
+          examples: [[]]
+          items:
+            $ref: "#/components/schemas/TrafficSpot"
+        slowSegments:
           type: array
           examples: [[]]
           items:
-            $ref: "#/components/schemas/Camera"
+            $ref: "#/components/schemas/SlowSegment"
+    Cost:
+      type: [object, "null"]
+      description: Coste del combustible; null si no hay gasolineras con ese combustible cerca de la ruta.
+      required: [fuel, consumptionL100km, pricePerLiter, litersPerTrip, eurPerTrip, eurPerMonth, days]
+      properties:
+        fuel:
+          type: string
+          enum: [g95, diesel]
+          examples: [g95]
+        consumptionL100km:
+          type: number
+          examples: [6.5]
+        pricePerLiter:
+          type: number
+          description: Precio de la gasolinera más barata a ≤1 km de la ruta.
+          examples: [1.359]
+        litersPerTrip:
+          type: number
+          examples: [0.53]
+        eurPerTrip:
+          type: number
+          description: Solo ida.
+          examples: [0.72]
+        eurPerMonth:
+          type: number
+          description: Ida y vuelta, `days` días.
+          examples: [28.84]
+        days:
+          type: integer
+          examples: [20]
+    Station:
+      type: object
+      description: Gasolinera cerca de la ruta.
+      required: [id, brand, address, position, price, distanceM]
+      properties:
+        id:
+          type: string
+          examples: ["15493"]
+        brand:
+          type: string
+          examples: [ALCAMPO]
+        address:
+          type: string
+          examples: [CALLE JOSE PAULETE]
+        position:
+          $ref: "#/components/schemas/Position"
+        price:
+          type: number
+          description: €/l del combustible pedido.
+          examples: [1.359]
+        distanceM:
+          type: integer
+          description: Distancia a la ruta.
+          examples: [420]
     Camera:
       type: object
-      description: Cámara de tráfico como Feature GeoJSON de tipo Point.
-      required: [type, geometry, properties]
+      description: Cámara de tráfico con foto en directo cerca de la ruta.
+      required: [id, name, source, imageUrl, position, alongM, distanceM]
       properties:
-        type:
+        id:
           type: string
-          const: Feature
-        geometry:
+          examples: [dgt-176130]
+        name:
+          type: string
+          examples: [A-3 (dir. VALENCIA)]
+        source:
+          type: string
+          enum: [madrid, dgt]
+          examples: [dgt]
+        imageUrl:
+          type: [string, "null"]
+          format: uri
+          examples: [https://etraffic.dgt.es/camarasEtraffic/176130.jpg]
+        position:
+          $ref: "#/components/schemas/Position"
+        alongM:
+          type: integer
+          description: Metros desde el origen hasta la cámara, siguiendo la ruta.
+          examples: [5400]
+        distanceM:
+          type: integer
+          description: Distancia perpendicular de la cámara a la ruta.
+          examples: [40]
+    Incident:
+      type: object
+      description: Incidencia de la DGT cerca de la ruta.
+      required: [id, kind, cause, road, position, alongM]
+      properties:
+        id:
+          type: string
+          examples: ["18811074"]
+        kind:
+          type: string
+          description: Tipo DATEX II.
+          examples: [RoadOrCarriagewayOrLaneManagement]
+        cause:
+          type: string
+          examples: [roadMaintenance]
+        road:
+          type: string
+          examples: [M-30]
+        position:
+          $ref: "#/components/schemas/Position"
+        alongM:
+          type: integer
+          examples: [3100]
+    Trip:
+      type: object
+      description: Trayecto con todas las capas cruzadas. Coste, gasolineras y cámaras solo en coche.
+      required: [route, traffic, cost, stations, cameras, incidents, updatedAt]
+      properties:
+        route:
+          $ref: "#/components/schemas/Route"
+        traffic:
+          $ref: "#/components/schemas/Traffic"
+        cost:
+          $ref: "#/components/schemas/Cost"
+        stations:
+          type: array
+          description: Hasta 10, de más barata a más cara. Vacía si no es en coche.
+          examples: [[]]
+          items:
+            $ref: "#/components/schemas/Station"
+        cameras:
+          type: array
+          description: En el orden de la marcha.
+          examples: [[]]
+          items:
+            $ref: "#/components/schemas/Camera"
+        incidents:
+          type: array
+          description: Incidencias en el orden de la marcha.
+          examples: [[]]
+          items:
+            $ref: "#/components/schemas/Incident"
+        updatedAt:
           type: object
-          required: [type, coordinates]
+          description: >-
+            Última ingesta correcta de cada capa (fuel, incidents, cameras-dgt, cameras-madrid). null si nunca se
+            cargó de la fuente; las cámaras del Ayuntamiento salen entonces de un fixture de respaldo.
+          examples: [{ fuel: "2026-11-19T14:27:02Z", cameras-madrid: null }]
+          additionalProperties:
+            type: [string, "null"]
+    HourInfo:
+      type: object
+      description: Una hora de hoy. Los campos de generación son null en las horas que aún no han pasado.
+      required: [start, price, market, regulated, period, demandMw, renewableShare, solarShare, windShare]
+      properties:
+        start:
+          type: string
+          format: date-time
+          examples: ["2026-11-19T01:00:00+01:00"]
+        price:
+          type: number
+          description: PVPC 2.0TD en €/kWh.
+          examples: [0.0915]
+        market:
+          type: [number, "null"]
+          description: Energía del mercado diario (OMIE), €/kWh.
+          examples: [0.0051]
+        regulated:
+          type: [number, "null"]
+          description: price − market, es decir, peajes, cargos y otros costes, €/kWh.
+          examples: [0.0864]
+        period:
+          type: [string, "null"]
+          enum: [punta, llano, valle, null]
+          examples: [valle]
+        demandMw:
+          type: [integer, "null"]
+          examples: [22500]
+        renewableShare:
+          type: [number, "null"]
+          description: "% renovable de la generación de esa hora."
+          examples: [71.2]
+        solarShare:
+          type: [number, "null"]
+          examples: [0.1]
+        windShare:
+          type: [number, "null"]
+          examples: [52.3]
+        generation:
+          $ref: "#/components/schemas/GenerationMix"
+    GenerationMix:
+      type: [object, "null"]
+      description: Generación media horaria por bloque tecnológico (MW) y saldos de absorción (exportaciones y bombeo).
+      required: [hydro, nuclear, gas, wind, solar, other, exports, pumping]
+      properties:
+        hydro:
+          type: integer
+          examples: [1426]
+        nuclear:
+          type: integer
+          examples: [6086]
+        gas:
+          type: integer
+          description: Ciclo combinado, cogeneración y fuel/gas.
+          examples: [2930]
+        wind:
+          type: integer
+          examples: [13739]
+        solar:
+          type: integer
+          description: Solar fotovoltaica y termoeléctrica.
+          examples: [16062]
+        other:
+          type: integer
+          description: Biomasa, carbón, almacenamiento entregando e importaciones.
+          examples: [269]
+        exports:
+          type: integer
+          description: Saldo exportador hacia países vecinos (MW positivos; se dibuja bajo cero).
+          examples: [4353]
+        pumping:
+          type: integer
+          description: Consumo de bombeo y carga de baterías (MW positivos; se dibuja bajo cero).
+          examples: [4097]
+    Electricity:
+      type: object
+      description: Precios de hoy y su explicación.
+      required: [date, source, average, hours, cheapest, extremes, tomorrowMarket]
+      properties:
+        date:
+          type: string
+          format: date
+          examples: ["2026-11-19"]
+        source:
+          type: string
+          enum: [esios, redata]
+          examples: [esios]
+        average:
+          type: number
+          description: Media del PVPC del día, €/kWh.
+          examples: [0.1609]
+        hours:
+          type: array
+          examples: [[]]
+          items:
+            $ref: "#/components/schemas/HourInfo"
+        cheapest:
+          type: array
+          description: Franja más barata de 1, 2 y 3 horas seguidas.
+          examples: [[{ hours: 2, start: "2026-11-19T00:00:00+01:00", average: 0.092, savingPercent: 43 }]]
+          items:
+            type: object
+            required: [hours, start, average, savingPercent]
+            properties:
+              hours:
+                type: integer
+                examples: [2]
+              start:
+                type: string
+                format: date-time
+                examples: ["2026-11-19T00:00:00+01:00"]
+              average:
+                type: number
+                examples: [0.092]
+              savingPercent:
+                type: integer
+                description: Ahorro frente a la media del día.
+                examples: [43]
+        extremes:
+          type: [object, "null"]
+          description: Hora más barata y más cara del día.
+          required: [cheapest, priciest]
+          examples: [null]
           properties:
-            type:
-              type: string
-              const: Point
-            coordinates:
-              $ref: "#/components/schemas/Position"
-        properties:
+            cheapest:
+              $ref: "#/components/schemas/HourInfo"
+            priciest:
+              $ref: "#/components/schemas/HourInfo"
+        tomorrowMarket:
+          type: array
+          description: Mercado diario de mañana por horas (€/kWh); vacío hasta que OMIE lo publica.
+          examples: [[{ start: "2026-11-20T00:00:00+01:00", market: 0.0612 }]]
+          items:
+            type: object
+            required: [start, market]
+            properties:
+              start:
+                type: string
+                format: date-time
+                examples: ["2026-11-20T00:00:00+01:00"]
+              market:
+                type: number
+                examples: [0.0612]
+    ElectricityNow:
+      type: object
+      description: Red peninsular en los últimos 5 minutos.
+      required: [at, demandMw, forecastMw, generationMw, renewableShare, co2GramsPerKwh, mix, flows]
+      properties:
+        at:
+          type: string
+          format: date-time
+          examples: ["2026-11-19T15:35:00+01:00"]
+        demandMw:
+          type: integer
+          examples: [32300]
+        forecastMw:
+          type: [integer, "null"]
+          examples: [32100]
+        generationMw:
+          type: integer
+          description: Suma de la mezcla (incluye lo que se exporta o se almacena).
+          examples: [40513]
+        renewableShare:
+          type: number
+          examples: [77.7]
+        co2GramsPerKwh:
+          type: integer
+          description: Gramos de CO₂ por kWh generado ahora.
+          examples: [31]
+        mix:
+          type: array
+          description: Tecnologías con generación > 0, de mayor a menor.
+          examples: [[{ id: wind, mw: 13739, share: 33.9, renewable: true }]]
+          items:
+            type: object
+            required: [id, mw, share, renewable]
+            properties:
+              id:
+                type: string
+                enum: [solar-pv, wind, hydro, solar-thermal, renewable-thermal, nuclear, combined-cycle, cogeneration, coal, fuel-gas, pumped-hydro, batteries, imports]
+                examples: [wind]
+              mw:
+                type: integer
+                examples: [13739]
+              share:
+                type: number
+                description: "% de la generación total."
+                examples: [33.9]
+              renewable:
+                type: boolean
+                examples: [true]
+        flows:
           type: object
-          required: [id, name, source, imageUrl]
+          description: Energía que no se consume en la península en este momento (MW, positivos).
+          required: [exportsMw, pumpingMw, batteriesChargeMw, balearesMw]
+          examples: [{ exportsMw: 4353, pumpingMw: 4097, batteriesChargeMw: 7, balearesMw: 51 }]
           properties:
-            id:
-              type: string
-              examples: [madrid-06303]
-            name:
-              type: string
-            source:
-              type: string
-              enum: [madrid, dgt]
-            imageUrl:
-              type: [string, "null"]
-              format: uri
+            exportsMw:
+              type: integer
+              examples: [4353]
+            pumpingMw:
+              type: integer
+              examples: [4097]
+            batteriesChargeMw:
+              type: integer
+              examples: [7]
+            balearesMw:
+              type: integer
+              examples: [51]
+    TransitStatus:
+      type: object
+      description: Estado de Cercanías Madrid por línea.
+      required: [updatedAt, lines]
+      properties:
+        updatedAt:
+          type: string
+          format: date-time
+          examples: ["2026-11-19T15:10:00Z"]
+        lines:
+          type: array
+          examples: [[{ line: C3, trains: 14, delayedTrains: 9, maxDelayMin: 12, alerts: [] }]]
+          items:
+            type: object
+            required: [line, trains, delayedTrains, maxDelayMin, alerts]
+            properties:
+              line:
+                type: string
+                examples: [C3]
+              trains:
+                type: integer
+                description: Trenes circulando con datos en vivo.
+                examples: [14]
+              delayedTrains:
+                type: integer
+                description: Con retraso de 1 minuto o más.
+                examples: [9]
+              maxDelayMin:
+                type: integer
+                examples: [12]
+              alerts:
+                type: array
+                examples: [["#MadC3 Debido a un reajuste…"]]
+                items:
+                  type: string
     Problem:
       type: object
       description: Problem document RFC 9457 con un `code` estable.
@@ -222,17 +921,17 @@ components:
           examples: [about:blank]
         title:
           type: string
-          examples: [Service Unavailable]
+          examples: [Bad Gateway]
         status:
           type: integer
-          examples: [503]
+          examples: [502]
         detail:
           type: string
-          examples: [La base de datos no responde.]
+          examples: [CartoCiudad no responde ahora mismo.]
         code:
           type: string
           description: Estable y en kebab-case; es lo que leen los clientes.
-          examples: [database-unavailable]
+          examples: [route-unavailable]
         requestId:
           type: string
           examples: [host/abc123-000001]

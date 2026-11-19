@@ -8,3 +8,9 @@ apps/api/bin/
 .DS_Store
 .agents
 .cursor
+
+# Descargas oficiales para la ingesta local
+.cache/
+
+# Motor de rutas: extracto OSM y teselas generadas (cientos de MB)
+apps/api/.valhalla/

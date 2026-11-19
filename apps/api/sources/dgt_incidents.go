@@ -20,7 +20,16 @@ type Incident struct {
 	Road     string
 	Province string
 	From, To geo.Point // un tramo; en incidencias puntuales From == To
+
+	// Detalle para navegar (vacío si no aplica):
+	Management string  // "roadClosed", "carriagewayClosures", "laneClosures"… (RoadOrCarriagewayOrLaneManagement)
+	Abnormal   string  // "slowTraffic", "stationaryTraffic"… (AbnormalTraffic)
+	SpeedLimit float64 // límite temporal, tal cual lo publica la DGT (SpeedManagement)
+	Direction  string  // "northBound", "unknown"…
 }
+
+// Closed dice si la vía está cortada por completo (en ambos sentidos).
+func (i Incident) Closed() bool { return i.Management == "roadClosed" }
 
 // DGTIncidents lee las incidencias activas de la DGT (DATEX II v3.7).
 func (c *Client) DGTIncidents(ctx context.Context) ([]Incident, error) {
@@ -50,6 +59,11 @@ func parseDGTIncidents(body []byte) ([]Incident, error) {
 			From   datexPoint `xml:"locationReference>tpegLinearLocation>from"`
 			To     datexPoint `xml:"locationReference>tpegLinearLocation>to"`
 			Single datexPoint `xml:"locationReference>tpegPointLocation>point"`
+
+			Management string  `xml:"roadOrCarriagewayOrLaneManagementType"`
+			Abnormal   string  `xml:"abnormalTrafficType"`
+			SpeedLimit float64 `xml:"temporarySpeedLimit"`
+			Direction  string  `xml:"locationReference>tpegLinearLocation>tpegDirection"`
 		} `xml:"situation>situationRecord"`
 	}
 
@@ -89,6 +103,8 @@ func parseDGTIncidents(body []byte) ([]Incident, error) {
 		incidents = append(incidents, Incident{
 			ID: r.ID, Kind: kind, Cause: r.Cause, Road: r.Road, Province: province,
 			From: geo.Point{from.Lng, from.Lat}, To: geo.Point{to.Lng, to.Lat},
+			Management: strings.TrimSpace(r.Management), Abnormal: strings.TrimSpace(r.Abnormal),
+			SpeedLimit: r.SpeedLimit, Direction: strings.TrimSpace(r.Direction),
 		})
 	}
 

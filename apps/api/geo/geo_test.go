@@ -34,3 +34,31 @@ func TestDistanceToLineM(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodePolyline(t *testing.T) {
+	// Primer tramo de la ruta Sol → Campus Sur de CartoCiudad.
+	pts, err := DecodePolyline("g|tuFxkrUGqAAE", 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(pts) != 3 {
+		t.Fatalf("got %d points, want 3", len(pts))
+	}
+
+	if math.Abs(pts[0][0]-(-3.70381)) > 1e-6 || math.Abs(pts[0][1]-40.41684) > 1e-6 {
+		t.Fatalf("first point = %v, want [-3.70381 40.41684] (lng, lat)", pts[0])
+	}
+
+	if _, err := DecodePolyline("g|tuFxkr", 5); err == nil {
+		t.Fatal("expected an error for a truncated polyline")
+	}
+}
+
+func TestDecodePolylinePrecision6(t *testing.T) {
+	// Valhalla codifica con 6 decimales: "_izlhA~rlgdF" = (38.5, -120.2).
+	pts, err := DecodePolyline("_izlhA~rlgdF", 6)
+	if err != nil || len(pts) != 1 || pts[0][0] != -120.2 || pts[0][1] != 38.5 {
+		t.Fatalf("got %v %v", pts, err)
+	}
+}

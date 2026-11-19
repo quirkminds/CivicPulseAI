@@ -7,26 +7,6 @@ import (
 
 // Los fragmentos vienen de respuestas reales (2026-11-19), recortados.
 
-func TestDecodePolyline(t *testing.T) {
-	// Primer tramo de la ruta Sol → Campus Sur de CartoCiudad.
-	pts, err := decodePolyline("g|tuFxkrUGqAAE")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(pts) != 3 {
-		t.Fatalf("got %d points, want 3", len(pts))
-	}
-
-	if math.Abs(pts[0][0]-(-3.70381)) > 1e-6 || math.Abs(pts[0][1]-40.41684) > 1e-6 {
-		t.Fatalf("first point = %v, want [-3.70381 40.41684] (lng, lat)", pts[0])
-	}
-
-	if _, err := decodePolyline("g|tuFxkr"); err == nil {
-		t.Fatal("expected an error for a truncated polyline")
-	}
-}
-
 func TestParseCartociudadRoute(t *testing.T) {
 	r, err := parseCartociudadRoute([]byte(`{"found":"true","distance":"8162.43","time":"703754","geom":"g|tuFxkrUGqAAE"}`))
 	if err != nil {
@@ -129,6 +109,37 @@ func TestParseDGTIncidents(t *testing.T) {
 	}
 }
 
+func TestParseDGTIncidentDetails(t *testing.T) {
+	// Fragmentos reales (19/11/2026): un corte total y un tramo con tráfico lento.
+	xml := `<d2:payload xmlns:d2="d" xmlns:sit="s" xmlns:loc="l" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><sit:situation>
+      <sit:situationRecord xsi:type="sit:RoadOrCarriagewayOrLaneManagement" id="1">
+        <sit:cause><sit:causeType>roadMaintenance</sit:causeType></sit:cause>
+        <sit:locationReference><loc:tpegLinearLocation><loc:tpegDirection>
+                    unknown
+                </loc:tpegDirection>
+          <loc:to><loc:pointCoordinates><loc:latitude>40.1</loc:latitude><loc:longitude>-3.7</loc:longitude></loc:pointCoordinates></loc:to>
+          <loc:from><loc:pointCoordinates><loc:latitude>40.2</loc:latitude><loc:longitude>-3.6</loc:longitude></loc:pointCoordinates></loc:from>
+        </loc:tpegLinearLocation></sit:locationReference>
+        <sit:roadOrCarriagewayOrLaneManagementType>
+            roadClosed
+        </sit:roadOrCarriagewayOrLaneManagementType>
+      </sit:situationRecord>
+      <sit:situationRecord xsi:type="sit:AbnormalTraffic" id="2">
+        <sit:cause><sit:causeType>abnormalTraffic</sit:causeType></sit:cause>
+        <sit:locationReference><loc:tpegPointLocation><loc:point><loc:pointCoordinates><loc:latitude>40.3</loc:latitude><loc:longitude>-3.5</loc:longitude></loc:pointCoordinates></loc:point></loc:tpegPointLocation></sit:locationReference>
+        <sit:abnormalTrafficType>slowTraffic</sit:abnormalTrafficType>
+      </sit:situationRecord></sit:situation></d2:payload>`
+
+	inc, err := parseDGTIncidents([]byte(xml))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(inc) != 2 || !inc[0].Closed() || inc[0].Direction != "unknown" || inc[1].Closed() || inc[1].Abnormal != "slowTraffic" {
+		t.Fatalf("unexpected incidents %+v", inc)
+	}
+}
+
 func TestParseFuelStations(t *testing.T) {
 	body := `{"Fecha":"19/11/2026 14:56:20","ResultadoConsulta":"OK","ListaEESSPrecio":[
       {"IDEESS":"15493","Rótulo":"PLENERGY","Dirección":"CAMINO TORREJON, 4","Localidad":"AJALVIR","Horario":"L-D: 24H",
@@ -166,5 +177,22 @@ func TestParsePVPC(t *testing.T) {
 
 	if len(prices) != 2 || prices[0].EURPerMWh != 92.49 || prices[1].Start.Hour() != 1 {
 		t.Fatalf("unexpected prices %+v", prices)
+	}
+}
+
+func TestParseESIOS(t *testing.T) {
+	// Fragmento real de /indicators/600 (mercado diario, 19/11/2026): una fila por país.
+	body := []byte(`{"indicator":{"id":600,"short_name":"Mercado SPOT","values":[
+		{"value":7.12,"datetime":"2026-11-19T00:00:00.000+01:00","datetime_utc":"2026-11-18T23:00:00Z","geo_id":3,"geo_name":"España"},
+		{"value":91.3,"datetime":"2026-11-19T00:00:00.000+01:00","datetime_utc":"2026-11-18T23:00:00Z","geo_id":2,"geo_name":"Francia"},
+		{"value":5.01,"datetime":"2026-11-19T01:00:00.000+01:00","datetime_utc":"2026-11-19T00:00:00Z","geo_id":3,"geo_name":"España"}]}}`)
+
+	got, err := parseESIOS(body, GeoSpain)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(got) != 2 || got[0].Value != 7.12 || got[1].Time.UTC().Hour() != 0 || got[1].Time.Hour() != 1 {
+		t.Fatalf("got %+v", got)
 	}
 }

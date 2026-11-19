@@ -8,8 +8,11 @@
     "test": "go test -race ./...",
     "typecheck": "test -z \"$(gofmt -l .)\" && go vet ./...",
     "lint:openapi": "go run github.com/daveshanley/vacuum@v0.33.1 lint --details --fail-severity warn --no-banner --no-style openapi.yaml",
-    "db:up": "docker compose up -d --wait",
+    "db:up": "docker compose up -d --wait postgres && test -f .valhalla/madrid-latest.osm.pbf && docker compose up -d valhalla || echo 'Sin mapa para Valhalla: ejecuta bun run routing:download'",
     "db:down": "docker compose down",
+    "routing:download": "mkdir -p .valhalla && curl -fL -C - --retry 5 --retry-all-errors -o .valhalla/madrid-latest.osm.pbf https://download.geofabrik.de/europe/spain/madrid-latest.osm.pbf",
+    "routing:logs": "docker compose logs -f valhalla",
+    "db:import-neighborhood": "uv run --script ingest/neighborhood/import.py",
     "probe": "go run . probe"
   }
 }
