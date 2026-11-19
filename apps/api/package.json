@@ -1,0 +1,15 @@
+{
+  "name": "@civicpulse/api",
+  "private": true,
+  "scripts": {
+    "dev": "go run .",
+    "build": "go build -trimpath -ldflags='-s -w' -o bin/api .",
+    "build:linux": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o bin/api-linux-amd64 .",
+    "test": "go test -race ./...",
+    "typecheck": "test -z \"$(gofmt -l .)\" && go vet ./...",
+    "lint:openapi": "go run github.com/daveshanley/vacuum@v0.33.1 lint --details --fail-severity warn --no-banner --no-style openapi.yaml",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "probe": "go run . probe"
+  }
+}

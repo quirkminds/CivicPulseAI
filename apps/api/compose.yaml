@@ -1,0 +1,26 @@
+# CivicPulse: base de datos solo para desarrollo local. En producción Postgres + PostGIS corre en el VPS.
+name: civicpulse-dev
+
+services:
+  postgres:
+    image: postgis/postgis:18-3.7-alpine
+    # La imagen oficial solo se publica para amd64 (la arquitectura del VPS); en Apple Silicon corre con Rosetta.
+    platform: linux/amd64
+    environment:
+      POSTGRES_USER: civicpulse_dev
+      POSTGRES_PASSWORD: civicpulse_dev
+      POSTGRES_DB: civicpulse_dev
+    ports:
+      # Solo localhost. 5434 para no chocar con otros Postgres locales (p. ej. ambar en 5432, zaltor en 5433).
+      - "127.0.0.1:5434:5432"
+    volumes:
+      # Las imágenes de Postgres 18 guardan los datos en /var/lib/postgresql/<major>/docker.
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U civicpulse_dev -d civicpulse_dev"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  postgres:

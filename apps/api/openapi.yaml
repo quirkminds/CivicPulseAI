@@ -1,0 +1,238 @@
+openapi: 3.1.0
+info:
+  title: CivicPulse API
+  version: 0.1.0
+  description: >-
+    Ingesta de datos abiertos oficiales (CartoCiudad, Ayuntamiento de Madrid, DGT) y API de solo lectura
+    para la web. Cada endpoint se describe aquí antes de escribirlo.
+  license:
+    name: MIT
+    identifier: MIT
+servers:
+  - url: http://localhost:8080
+    description: Desarrollo
+tags:
+  - name: system
+    description: Estado del servicio.
+  - name: trayecto
+    description: Datos para «Mi trayecto».
+paths:
+  /healthz:
+    get:
+      operationId: getHealth
+      summary: Estado de la API y de la base de datos
+      description: Responde 200 si la API y Postgres están arriba, 503 si la base de datos no responde.
+      tags: [system]
+      responses:
+        "200":
+          description: Todo arriba.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    const: ok
+              example:
+                status: ok
+        "503":
+          $ref: "#/components/responses/Problem"
+  /v1/route:
+    get:
+      operationId: getRoute
+      summary: Ruta en coche entre dos puntos (pendiente de implementar)
+      description: >-
+        Envuelve CartoCiudad y devuelve la geometría ya decodificada a GeoJSON con coordenadas [lng, lat].
+        CartoCiudad usa velocidades fijas: `durationS` no tiene en cuenta el tráfico.
+      tags: [trayecto]
+      parameters:
+        - $ref: "#/components/parameters/Orig"
+        - $ref: "#/components/parameters/Dest"
+      responses:
+        "200":
+          description: Ruta encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Route"
+              example:
+                provider: cartociudad
+                distanceM: 8162
+                durationS: 704
+                geometry:
+                  type: LineString
+                  coordinates: [[-3.70381, 40.41684], [-3.62804, 40.38887]]
+        "400":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
+  /v1/cameras:
+    get:
+      operationId: listCameras
+      summary: Cámaras de tráfico con foto en directo (pendiente de implementar)
+      description: Cámaras del Ayuntamiento de Madrid (CCTV.kml) y de la DGT (DATEX II), unificadas.
+      tags: [trayecto]
+      responses:
+        "200":
+          description: Todas las cámaras.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CameraCollection"
+              example:
+                type: FeatureCollection
+                features:
+                  - type: Feature
+                    geometry: { type: Point, coordinates: [-3.688942, 40.466064] }
+                    properties:
+                      id: madrid-06303
+                      name: PLAZA DE CASTILLA (NORTE)
+                      source: madrid
+                      imageUrl: https://informo.madrid.es/cameras/Camara06303.jpg
+        "502":
+          $ref: "#/components/responses/Problem"
+components:
+  parameters:
+    Orig:
+      name: orig
+      in: query
+      required: true
+      description: Origen como `lat,lng`.
+      schema:
+        type: string
+        pattern: "^-?\\d+(\\.\\d+)?,-?\\d+(\\.\\d+)?$"
+      example: "40.4168,-3.7038"
+    Dest:
+      name: dest
+      in: query
+      required: true
+      description: Destino como `lat,lng`.
+      schema:
+        type: string
+        pattern: "^-?\\d+(\\.\\d+)?,-?\\d+(\\.\\d+)?$"
+      example: "40.3896,-3.6283"
+  responses:
+    Problem:
+      description: Error como problem document (RFC 9457).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+          example:
+            type: about:blank
+            title: Service Unavailable
+            status: 503
+            detail: La base de datos no responde.
+            code: database-unavailable
+            requestId: host/abc123-000001
+  schemas:
+    Position:
+      type: array
+      description: "[lng, lat]"
+      examples: [[-3.7038, 40.4168]]
+      items:
+        type: number
+      minItems: 2
+      maxItems: 2
+    Route:
+      type: object
+      description: Ruta en coche de CartoCiudad con la geometría en GeoJSON.
+      required: [provider, distanceM, durationS, geometry]
+      properties:
+        provider:
+          type: string
+          const: cartociudad
+        distanceM:
+          type: integer
+          examples: [8162]
+          description: Distancia en metros.
+        durationS:
+          type: integer
+          examples: [704]
+          description: Duración en segundos, sin tráfico.
+        geometry:
+          type: object
+          required: [type, coordinates]
+          examples:
+            - type: LineString
+              coordinates: [[-3.70381, 40.41684], [-3.62804, 40.38887]]
+          properties:
+            type:
+              type: string
+              const: LineString
+            coordinates:
+              type: array
+              examples: [[[-3.70381, 40.41684], [-3.62804, 40.38887]]]
+              items:
+                $ref: "#/components/schemas/Position"
+    CameraCollection:
+      type: object
+      description: FeatureCollection GeoJSON de cámaras.
+      required: [type, features]
+      properties:
+        type:
+          type: string
+          const: FeatureCollection
+        features:
+          type: array
+          examples: [[]]
+          items:
+            $ref: "#/components/schemas/Camera"
+    Camera:
+      type: object
+      description: Cámara de tráfico como Feature GeoJSON de tipo Point.
+      required: [type, geometry, properties]
+      properties:
+        type:
+          type: string
+          const: Feature
+        geometry:
+          type: object
+          required: [type, coordinates]
+          properties:
+            type:
+              type: string
+              const: Point
+            coordinates:
+              $ref: "#/components/schemas/Position"
+        properties:
+          type: object
+          required: [id, name, source, imageUrl]
+          properties:
+            id:
+              type: string
+              examples: [madrid-06303]
+            name:
+              type: string
+            source:
+              type: string
+              enum: [madrid, dgt]
+            imageUrl:
+              type: [string, "null"]
+              format: uri
+    Problem:
+      type: object
+      description: Problem document RFC 9457 con un `code` estable.
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          examples: [about:blank]
+        title:
+          type: string
+          examples: [Service Unavailable]
+        status:
+          type: integer
+          examples: [503]
+        detail:
+          type: string
+          examples: [La base de datos no responde.]
+        code:
+          type: string
+          description: Estable y en kebab-case; es lo que leen los clientes.
+          examples: [database-unavailable]
+        requestId:
+          type: string
+          examples: [host/abc123-000001]
